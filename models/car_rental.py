@@ -1,7 +1,8 @@
-from typing import List, Optional, Dict, Any
+from typing import Optional
 from pydantic import Field
 from datetime import datetime
 from .core import MongoBaseModel
+
 
 class Vehicle(MongoBaseModel):
     make: str
@@ -22,6 +23,7 @@ class Vehicle(MongoBaseModel):
     min_driver_age: int = 21
     deposit_amount: float
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class CRReservation(MongoBaseModel):
     call_id: Optional[str] = None

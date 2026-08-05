@@ -1,7 +1,8 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from pydantic import Field
 from datetime import datetime
 from .core import MongoBaseModel
+
 
 class PropertyAmenities(MongoBaseModel):
     parking: int = 0
@@ -11,6 +12,7 @@ class PropertyAmenities(MongoBaseModel):
     security: str = "none"
     gas: bool = False
     electricity_backup: str = "none"
+
 
 class Property(MongoBaseModel):
     title: str
@@ -34,6 +36,7 @@ class Property(MongoBaseModel):
     agent_notes: Optional[str] = None
     listed_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class REBooking(MongoBaseModel):
     call_id: Optional[str] = None

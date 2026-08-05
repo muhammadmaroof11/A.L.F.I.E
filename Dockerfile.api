@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY . .
+
+# Environment setup
+ENV PYTHONUNBUFFERED=1
+ENV MODULE_NAME="api"
+ENV VARIABLE_NAME="app"
+ENV PORT="8000"
+
+EXPOSE 8000
+
+# Run FastAPI with Gunicorn and Uvicorn workers
+CMD ["gunicorn", "api:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]

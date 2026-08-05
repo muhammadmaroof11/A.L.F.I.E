@@ -3,6 +3,7 @@ from livekit.agents import llm
 from typing import Annotated, Optional
 from crm_client import crm
 
+
 class RealEstateTools(llm.FunctionContext):
     def __init__(self, tenant_id: str):
         super().__init__()
@@ -19,7 +20,7 @@ class RealEstateTools(llm.FunctionContext):
         max_price: Annotated[Optional[float], "Maximum price in PKR"] = None,
     ) -> str:
         logging.info(f"[{self.tenant_id}] Searching properties in {city}")
-        
+
         try:
             results = await crm.find_properties(city=city, min_beds=bedrooms)
             if not results:
@@ -34,9 +35,7 @@ class RealEstateTools(llm.FunctionContext):
             logging.error(f"Error querying properties: {e}")
             return "I'm having trouble accessing the property database right now."
 
-    @llm.ai_callable(
-        description="Book a viewing for a specific property."
-    )
+    @llm.ai_callable(description="Book a viewing for a specific property.")
     async def book_viewing(
         self,
         property_title: Annotated[str, "The title or ID of the property"],
@@ -44,13 +43,15 @@ class RealEstateTools(llm.FunctionContext):
         time_slot: Annotated[str, "Time slot (e.g. 14:00)"],
     ) -> str:
         logging.info(f"[{self.tenant_id}] Booking viewing for {property_title}")
-        
+
         try:
             task_id = await crm.create_task(
                 title=f"Viewing: {property_title}",
-                description=f"Scheduled for {viewing_date} at {time_slot}."
+                description=f"Scheduled for {viewing_date} at {time_slot}.",
             )
-            return f"Viewing booked for {viewing_date} at {time_slot}. Task ID: {task_id}"
+            return (
+                f"Viewing booked for {viewing_date} at {time_slot}. Task ID: {task_id}"
+            )
         except Exception as e:
             logging.error(f"Error booking viewing: {e}")
             return "I couldn't book the viewing due to a system error."

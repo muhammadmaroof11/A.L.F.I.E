@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import aiohttp
 import json
 from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
 from livekit.agents.pipeline import VoicePipelineAgent
@@ -44,26 +45,46 @@ async def entrypoint(ctx: JobContext):
 
     tenant_id = metadata.get("tenant_id")
     if not tenant_id:
-        logger.error("No tenant_id found in room metadata. Cannot route call. Shutting down.")
+        logger.error(
+            "No tenant_id found in room metadata. Cannot route call. Shutting down."
+        )
         return
 
     logger.info(f"Fetching configuration for tenant: {tenant_id} from Twenty CRM...")
     config_data = await crm.get_tenant_config(tenant_id)
 
     if not config_data:
-        logger.error(f"Tenant config not found for '{tenant_id}' in Twenty CRM. Shutting down.")
+        logger.error(
+            f"Tenant config not found for '{tenant_id}' in Twenty CRM. Shutting down."
+        )
         return
 
-    logger.info(f"Initializing agent for tenant: {tenant_id} (Niche: {config_data.get('niche')})")
+    logger.info(
+        f"Initializing agent for tenant: {tenant_id} (Niche: {config_data.get('niche')})"
+    )
 
     # --- PHASE 2.4b: Dynamic prompt routing via registry ---
     niche = config_data.get("niche")
     niche_prompt = PROMPT_REGISTRY.get(niche, "")
-    system_prompt = f"{BASE_SYSTEM_PROMPT}\n\n{niche_prompt}\n\n{config_data.get('system_prompt', '')}"
+    raw_system_prompt = f"{BASE_SYSTEM_PROMPT}\n\n{niche_prompt}\n\n{config_data.get('system_prompt', '')}"
+
+    # Compress Context via LLMLingua-2
+    system_prompt = raw_system_prompt
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post("http://llmlingua:5000/compress", json={"context": raw_system_prompt, "target_token": 500}, timeout=2.0) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    system_prompt = data.get("compressed_prompt", raw_system_prompt)
+                    logger.info(f"Compressed prompt. Saved {data.get('saved_tokens', 0)} tokens.")
+    except Exception as e:
+        logger.warning(f"LLMLingua compression skipped or failed: {e}")
 
     # Setup tools
     tool_keys = config_data.get("enabled_tools", [])
-    fnc_ctx = registry.build_context(tool_keys, tenant_id=tenant_id, room_name=ctx.room.name)
+    fnc_ctx = registry.build_context(
+        tool_keys, tenant_id=tenant_id, room_name=ctx.room.name
+    )
 
     # Initialize AI Plugins from settings / Docker secrets
     stt = deepgram.STT(
@@ -71,15 +92,15 @@ async def entrypoint(ctx: JobContext):
         language=config_data["stt_config"]["language"],
         profanity_filter=config_data["stt_config"]["profanity_filter"],
         smart_format=config_data["stt_config"]["smart_format"],
-        api_key=settings.deepgram_api_key
+        api_key=settings.deepgram_api_key,
     )
 
     llm_plugin = openai.LLM(
         model=config_data["llm_config"]["model"],
         temperature=config_data["llm_config"]["temperature"],
         max_tokens=config_data["llm_config"]["max_tokens"],
-        base_url="https://openrouter.ai/api/v1",
-        api_key=settings.openrouter_api_key
+        base_url="http://litellm:4000",
+        api_key="sk-alfie-master-key",
     )
 
     # --- PHASE 2.5b: Dynamic TTS provider ---
@@ -89,19 +110,19 @@ async def entrypoint(ctx: JobContext):
             model=config_data["voice_config"]["model"],
             reference_id=config_data["voice_config"]["voice_id"],
             api_key=settings.fish_audio_api_key,
-            latency_mode=config_data["voice_config"]["latency_mode"]
+            latency_mode=config_data["voice_config"]["latency_mode"],
         )
     else:
         # Fallback: OpenAI TTS
         tts = openai.TTS(
             model="tts-1",
             voice=config_data["voice_config"].get("voice_id", "alloy"),
-            api_key=settings.openrouter_api_key
+            api_key=settings.openrouter_api_key,
         )
 
     vad = silero.VAD(
         min_silence_duration=config_data["vad_config"]["min_silence_duration"],
-        activation_threshold=config_data["vad_config"]["activation_threshold"]
+        activation_threshold=config_data["vad_config"]["activation_threshold"],
     )
 
     # Initialize Pipeline Agent
@@ -111,7 +132,7 @@ async def entrypoint(ctx: JobContext):
         llm=llm_plugin,
         tts=tts,
         fnc_ctx=fnc_ctx,
-        chat_ctx=llm.ChatContext().append(role="system", text=system_prompt)
+        chat_ctx=llm.ChatContext().append(role="system", text=system_prompt),
     )
 
     agent.start(ctx.room)
@@ -132,7 +153,9 @@ async def entrypoint(ctx: JobContext):
         )
 
 
-async def post_call_processing(chat_ctx: llm.ChatContext, tenant_id: str, room_name: str, duration_seconds: int):
+async def post_call_processing(
+    chat_ctx: llm.ChatContext, tenant_id: str, room_name: str, duration_seconds: int
+):
     """Runs after a call ends: fetch recording URL, fire n8n webhook, log billing."""
     from notifications import send_webhook
     from billing import record_usage
@@ -144,18 +167,26 @@ async def post_call_processing(chat_ctx: llm.ChatContext, tenant_id: str, room_n
         if m.role in ["user", "assistant"]
     ]
 
-    # 2. Fetch real recording URL via LiveKit Egress API
+    # 2. Fetch real recording URL via LiveKit Egress API (with retry loop for S3 upload delay)
     recording_url = None
     try:
         lkapi = livekit_api.LiveKitAPI(
             settings.livekit_url, settings.livekit_api_key, settings.livekit_api_secret
         )
-        egresses = await lkapi.egress.list_egress(
-            livekit_api.ListEgressRequest(room_name=room_name)
-        )
+        
+        # Retry up to 5 times (total ~15 seconds) to allow LiveKit to finish S3 upload
+        for attempt in range(5):
+            egresses = await lkapi.egress.list_egress(
+                livekit_api.ListEgressRequest(room_name=room_name)
+            )
+            if egresses and egresses[0].file and egresses[0].file.location:
+                recording_url = egresses[0].file.location
+                break
+            
+            logger.info(f"[{tenant_id}] Egress URL not ready yet. Retrying in 3s (Attempt {attempt + 1}/5)...")
+            await asyncio.sleep(3)
+
         await lkapi.aclose()
-        if egresses and egresses[0].file:
-            recording_url = egresses[0].file.location
     except Exception as e:
         logger.warning(f"Could not fetch egress recording URL: {e}")
 
@@ -164,7 +195,7 @@ async def post_call_processing(chat_ctx: llm.ChatContext, tenant_id: str, room_n
         "room_name": room_name,
         "duration_seconds": duration_seconds,
         "recording_url": recording_url,
-        "transcript": messages
+        "transcript": messages,
     }
     await send_webhook(tenant_id, "call_completed", payload)
 

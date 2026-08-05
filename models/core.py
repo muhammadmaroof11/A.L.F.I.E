@@ -2,11 +2,13 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
 
+
 class VoiceConfig(BaseModel):
     provider: str
     model: str
     voice_id: str
     latency_mode: str = "balanced"
+
 
 class STTConfig(BaseModel):
     provider: str
@@ -14,12 +16,14 @@ class STTConfig(BaseModel):
     language: str = "multi"
     keyterms: List[str] = []
 
+
 class LLMConfig(BaseModel):
     provider: str
     model: str
     base_url: Optional[str] = None
     temperature: float = 0.7
     max_tokens: int = 256
+
 
 class AgentConfig(BaseModel):
     niche: str
@@ -33,6 +37,7 @@ class AgentConfig(BaseModel):
     supported_languages: List[str]
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+
 class ToolRegistryEntry(BaseModel):
     tool_name: str
     niche: str
@@ -43,12 +48,14 @@ class ToolRegistryEntry(BaseModel):
     filler_phrases: Optional[Dict[str, str]] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+
 class LeadQualification(BaseModel):
     budget_confirmed: bool = False
     timeline: Optional[str] = None
     financing: Optional[str] = None
     decision_maker: bool = False
     motivation: Optional[str] = None
+
 
 class Lead(BaseModel):
     call_id: Optional[str] = None
@@ -65,6 +72,7 @@ class Lead(BaseModel):
     first_contact: datetime = Field(default_factory=datetime.utcnow)
     last_contact: datetime = Field(default_factory=datetime.utcnow)
 
+
 class CallMetrics(BaseModel):
     avg_stt_latency_ms: Optional[float] = None
     avg_llm_ttft_ms: Optional[float] = None
@@ -72,6 +80,7 @@ class CallMetrics(BaseModel):
     total_llm_tokens: int = 0
     interruptions_count: int = 0
     context_prunes_count: int = 0
+
 
 class CallSession(BaseModel):
     call_id: str

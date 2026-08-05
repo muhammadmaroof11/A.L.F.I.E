@@ -5,6 +5,7 @@ from typing import Annotated
 from config import settings
 from crm_client import crm
 
+
 class CoreTools(llm.FunctionContext):
     def __init__(self, tenant_id: str, room_name: str = None, **kwargs):
         super().__init__()
@@ -33,13 +34,15 @@ class CoreTools(llm.FunctionContext):
 
             # Issue the real LiveKit SIP transfer
             lkapi = livekit_api.LiveKitAPI(
-                settings.livekit_url, settings.livekit_api_key, settings.livekit_api_secret
+                settings.livekit_url,
+                settings.livekit_api_key,
+                settings.livekit_api_secret,
             )
             await lkapi.sip.transfer_sip_participant(
                 livekit_api.TransferSIPParticipantRequest(
                     room_name=self.room_name,
                     participant_identity="caller",
-                    transfer_to=sip_uri
+                    transfer_to=sip_uri,
                 )
             )
             await lkapi.aclose()
@@ -49,9 +52,7 @@ class CoreTools(llm.FunctionContext):
             logging.error(f"[{self.tenant_id}] SIP transfer failed: {e}")
             return "I'm having a technical issue with the transfer. Let me take your number and arrange a callback."
 
-    @llm.ai_callable(
-        description="Capture a new lead's basic contact information."
-    )
+    @llm.ai_callable(description="Capture a new lead's basic contact information.")
     async def capture_lead(
         self,
         name: Annotated[str, "The caller's full name"],
@@ -61,12 +62,12 @@ class CoreTools(llm.FunctionContext):
         logging.info(f"[{self.tenant_id}] Capturing lead: {name}")
 
         try:
-            lead_id = await crm.create_lead(
+            await crm.create_lead(
                 name=name,
                 phone=phone,
-                context=f"Captured via Voice Agent. Email: {email}"
+                context=f"Captured via Voice Agent. Email: {email}",
             )
-            return f"Got it, I've saved your information. Someone from our team will be in touch with you soon."
+            return "Got it, I've saved your information. Someone from our team will be in touch with you soon."
         except Exception as e:
             logging.error(f"Error capturing lead: {e}")
             return "I couldn't save your details right now due to a system error. Please try again."

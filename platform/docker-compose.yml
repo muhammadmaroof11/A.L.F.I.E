@@ -1,5 +1,23 @@
 services:
   # -----------------------------------------------------
+  # API GATEWAY (Traefik)
+  # -----------------------------------------------------
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - alfie_network
+
+  # -----------------------------------------------------
   # SHARED INFRASTRUCTURE
   # -----------------------------------------------------
   postgres:
@@ -63,6 +81,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.twenty.rule=Host(`crm.alfie.localhost`)"
+      - "traefik.http.services.twenty.loadbalancer.server.port=3000"
 
   twenty-worker:
     image: twentycrm/twenty:latest
@@ -96,9 +118,9 @@ services:
       - appsmith_data:/appsmith-stacks
 
   # -----------------------------------------------------
-  # n8n (The Event Bus / Automation)
+  # n8n (The Event Bus / Automation - Queue Mode)
   # -----------------------------------------------------
-  n8n:
+  n8n-main:
     image: docker.n8n.io/n8nio/n8n
     ports:
       - "5678:5678"
@@ -112,42 +134,117 @@ services:
       - DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
       - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5678/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.alfie.localhost`)"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+
+  n8n-worker:
+    image: docker.n8n.io/n8nio/n8n
+    command: worker
+    networks:
+      - alfie_network
+    environment:
+      - DB_TYPE=${DB_TYPE}
+      - DB_POSTGRESDB_HOST=${DB_POSTGRESDB_HOST}
+      - DB_POSTGRESDB_PORT=${DB_POSTGRESDB_PORT}
+      - DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
+      - DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
+      - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
 
   # -----------------------------------------------------
-  # A.L.F.I.E VOICE AI AGENT
+  # A.L.F.I.E BACKEND (API & Voice Agent)
   # -----------------------------------------------------
-  alfie-agent:
+  alfie-api:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.api
     environment:
       - TWENTY_API_URL=http://twenty-server:3000
-      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/alfie-events
+      - N8N_WEBHOOK_URL=http://n8n-main:5678/webhook/alfie-events
       - TELEMETRY_DB_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/twenty_db
     networks:
       - alfie_network
     depends_on:
       twenty-server:
         condition: service_healthy
-      n8n:
+      postgres:
         condition: service_healthy
     volumes:
       - ../secrets:/run/secrets:ro
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.alfie.localhost`)"
+      - "traefik.http.services.api.loadbalancer.server.port=8000"
+
+  alfie-agent:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - TWENTY_API_URL=http://twenty-server:3000
+      - N8N_WEBHOOK_URL=http://n8n-main:5678/webhook/alfie-events
+      - TELEMETRY_DB_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/twenty_db
+    networks:
+      - alfie_network
+    depends_on:
+      twenty-server:
+        condition: service_healthy
+      n8n-main:
+        condition: service_healthy
+    volumes:
+      - ../secrets:/run/secrets:ro
+
+  # -----------------------------------------------------
+  # FRONTEND UIs (Nginx)
+  # -----------------------------------------------------
+  super-admin-ui:
+    build:
+      context: ../super_admin_ui
+      dockerfile: Dockerfile
+    networks:
+      - alfie_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`admin.alfie.localhost`)"
+      - "traefik.http.services.admin.loadbalancer.server.port=80"
+
+  client-admin-ui:
+    build:
+      context: ../client_admin_ui
+      dockerfile: Dockerfile
+    networks:
+      - alfie_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client.rule=Host(`client.alfie.localhost`)"
+      - "traefik.http.services.client.loadbalancer.server.port=80"
 
 volumes:
   postgres_data:

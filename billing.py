@@ -29,7 +29,7 @@ async def record_usage(tenant_id: str, call_id: str, duration_seconds: int):
                 "duration_seconds": duration_seconds,
                 "credits_used_usd": credits_used,
                 "rate_per_minute": RATE_PER_MINUTE_USD,
-            }
+            },
         )
     except Exception as e:
         logger.error(f"Failed to record billing usage for [{tenant_id}]: {e}")
