@@ -1,0 +1,114 @@
+{
+  "name": "ALFIE Post-Call Processor & CRM Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "alfie-events",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "e4f5a6b7-1c2d-4e3f-8a9b-0c1d2e3f4a5b",
+      "name": "Webhook: Call Completed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "alfie-events"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "content": "You are a CRM assistant. Summarize the following AI phone call transcript into a brief 2-3 sentence summary, and extract a list of action items."
+            },
+            {
+              "content": "={{ $json.body.transcript }}"
+            }
+          ]
+        }
+      },
+      "id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Summarize Transcript",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TWENTY_API_URL || 'http://twenty-server:3000' }}/rest/interactionLogs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ={{ $env.TWENTY_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "tenantId",
+              "value": "={{ $('Webhook: Call Completed').item.json.body.tenant_id }}"
+            },
+            {
+              "name": "roomName",
+              "value": "={{ $('Webhook: Call Completed').item.json.body.room_name }}"
+            },
+            {
+              "name": "durationSeconds",
+              "value": "={{ $('Webhook: Call Completed').item.json.body.duration_seconds }}"
+            },
+            {
+              "name": "summary",
+              "value": "={{ $json.message.content }}"
+            },
+            {
+              "name": "recordingUrl",
+              "value": "={{ $('Webhook: Call Completed').item.json.body.recording_url }}"
+            }
+          ]
+        }
+      },
+      "id": "7f8e9d0c-1b2a-3f4e-5d6c-7b8a9f0e1d2c",
+      "name": "Sync to Twenty CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Call Completed": {
+      "main": [
+        [
+          {
+            "node": "Summarize Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Transcript": {
+      "main": [
+        [
+          {
+            "node": "Sync to Twenty CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
