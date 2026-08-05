@@ -27,6 +27,11 @@ const routes = [
         path: 'debug',
         name: 'DebugLogs',
         component: () => import('../views/DebugLogs.vue')
+      },
+      {
+        path: 'metrics',
+        name: 'GlobalMetrics',
+        component: () => import('../views/GlobalMetrics.vue')
       }
     ]
   }

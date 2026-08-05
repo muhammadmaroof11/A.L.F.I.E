@@ -4,6 +4,15 @@
 
 @layer base {
   body {
-    @apply bg-bgDeep text-textPrimary antialiased;
+    @apply bg-background text-textPrimary antialiased;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-surface backdrop-blur-xl border border-border;
+  }
+  .glass-elevated {
+    @apply bg-surfaceHover backdrop-blur-2xl border border-borderHover shadow-glass-elevated;
   }
 }
