@@ -1,0 +1,161 @@
+services:
+  # -----------------------------------------------------
+  # SHARED INFRASTRUCTURE
+  # -----------------------------------------------------
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - alfie_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - alfie_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # -----------------------------------------------------
+  # TWENTY CRM (The Core API & UI)
+  # -----------------------------------------------------
+  twenty-server:
+    image: twentycrm/twenty:latest
+    environment:
+      APP_SECRET: ${APP_SECRET}
+      SERVER_URL: ${SERVER_URL}
+      PG_DATABASE_URL: ${PG_DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    networks:
+      - alfie_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - twenty_data:/app/docker-data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  twenty-worker:
+    image: twentycrm/twenty:latest
+    command: ["yarn", "worker:prod"]
+    environment:
+      APP_SECRET: ${APP_SECRET}
+      SERVER_URL: ${SERVER_URL}
+      PG_DATABASE_URL: ${PG_DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+    networks:
+      - alfie_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # -----------------------------------------------------
+  # APPSMITH (The Custom Dashboard Builder)
+  # -----------------------------------------------------
+  appsmith:
+    image: appsmith/appsmith-ce:latest
+    ports:
+      - "8080:80"
+    networks:
+      - alfie_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - appsmith_data:/appsmith-stacks
+
+  # -----------------------------------------------------
+  # n8n (The Event Bus / Automation)
+  # -----------------------------------------------------
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    ports:
+      - "5678:5678"
+    networks:
+      - alfie_network
+    environment:
+      - DB_TYPE=${DB_TYPE}
+      - DB_POSTGRESDB_HOST=${DB_POSTGRESDB_HOST}
+      - DB_POSTGRESDB_PORT=${DB_POSTGRESDB_PORT}
+      - DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
+      - DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
+      - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # -----------------------------------------------------
+  # A.L.F.I.E VOICE AI AGENT
+  # -----------------------------------------------------
+  alfie-agent:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - TWENTY_API_URL=http://twenty-server:3000
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/alfie-events
+      - TELEMETRY_DB_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/twenty_db
+    networks:
+      - alfie_network
+    depends_on:
+      twenty-server:
+        condition: service_healthy
+      n8n:
+        condition: service_healthy
+    volumes:
+      - ../secrets:/run/secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  twenty_data:
+  appsmith_data:
+  n8n_data:
+
+networks:
+  alfie_network:
+    driver: bridge

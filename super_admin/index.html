@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A.L.F.I.E — Super Admin Portal</title>
+  <meta name="description" content="A.L.F.I.E Super Admin Portal — Manage tenants, monitor AI voice agent performance, and control the full platform from a single command center." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       DESIGN TOKENS — ALFIE Super Admin (Dark Financial Palette)
+    ============================================================ */
+    :root {
+      --bg-base:       #020617;
+      --bg-surface:    #0E1223;
+      --bg-elevated:   #141929;
+      --bg-overlay:    #1A1E2F;
+      --border:        #334155;
+      --border-subtle: #1E293B;
+
+      --text-primary:   #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted:     #475569;
+
+      --accent-blue:   #3B82F6;
+      --accent-violet: #8B5CF6;
+      --accent-green:  #22C55E;
+      --accent-amber:  #F59E0B;
+      --accent-red:    #EF4444;
+      --accent-cyan:   #06B6D4;
+
+      --font-heading: 'Fira Code', monospace;
+      --font-body:    'Fira Sans', sans-serif;
+
+      /* Dashboard density scale */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       SIDEBAR
+    ============================================================ */
+    .sidebar {
+      width: 220px;
+      min-width: 220px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+    }
+
+    .sidebar-logo {
+      padding: var(--space-6) var(--space-5);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .logo-mark {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-violet));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-heading);
+      font-weight: 700; font-size: 13px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-family: var(--font-heading);
+      font-size: 14px; font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: 0.05em;
+    }
+    .logo-text span { color: var(--accent-blue); }
+
+    .sidebar-badge {
+      font-size: 9px;
+      background: var(--accent-violet);
+      color: white;
+      padding: 2px 6px;
+      border-radius: 99px;
+      font-family: var(--font-heading);
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+
+    .sidebar-nav {
+      padding: var(--space-4) var(--space-3);
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-section-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 600;
+      padding: var(--space-3) var(--space-3) var(--space-2);
+    }
+
+    .nav-item {
+      display: flex; align-items: center;
+      gap: var(--space-3);
+      padding: 9px var(--space-3);
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      transition: background 150ms, color 150ms;
+      position: relative;
+      user-select: none;
+      margin-bottom: 2px;
+    }
+
+    .nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+    .nav-item.active {
+      background: rgba(59,130,246,0.12);
+      color: var(--accent-blue);
+      font-weight: 500;
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 50%; transform: translateY(-50%);
+      width: 3px; height: 60%;
+      background: var(--accent-blue);
+      border-radius: 0 3px 3px 0;
+    }
+
+    .nav-icon {
+      width: 16px; height: 16px; flex-shrink: 0; opacity: 0.8;
+    }
+    .nav-item.active .nav-icon { opacity: 1; }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--accent-red);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 99px;
+      font-family: var(--font-heading);
+    }
+
+    .sidebar-footer {
+      padding: var(--space-4) var(--space-3);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .admin-profile {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-3);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 150ms;
+    }
+    .admin-profile:hover { background: var(--bg-elevated); }
+
+    .avatar {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--accent-violet), var(--accent-blue));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: white;
+      flex-shrink: 0;
+    }
+
+    .admin-info { flex: 1; min-width: 0; }
+    .admin-name { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+    .admin-role { font-size: 11px; color: var(--text-muted); }
+
+    /* ============================================================
+       MAIN CONTENT AREA
+    ============================================================ */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Top bar */
+    .topbar {
+      height: 56px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex; align-items: center;
+      padding: 0 var(--space-6);
+      gap: var(--space-4);
+      flex-shrink: 0;
+    }
+
+    .page-title {
+      font-family: var(--font-heading);
+      font-size: 14px; font-weight: 600;
+      color: var(--text-primary);
+      flex: 1;
+    }
+
+    .topbar-actions { display: flex; align-items: center; gap: var(--space-3); }
+
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 12px;
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 99px;
+      font-size: 12px; color: var(--accent-green);
+      font-family: var(--font-heading);
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px;
+      border-radius: 7px;
+      font-size: 13px; font-weight: 500;
+      font-family: var(--font-body);
+      cursor: pointer;
+      transition: all 150ms;
+      border: none; text-decoration: none;
+    }
+    .btn-primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+    .btn-primary:hover { background: #2563EB; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59,130,246,0.35); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+    /* Page area */
+    .page-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-6);
+    }
+
+    /* Tab switcher (for demo navigation) */
+    .demo-tabs {
+      position: fixed;
+      bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 4px;
+      display: flex; gap: 4px;
+      z-index: 999;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .tab-btn {
+      padding: 8px 18px;
+      border-radius: 99px;
+      border: none;
+      font-family: var(--font-body);
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: all 150ms;
+      color: var(--text-secondary);
+      background: transparent;
+      font-weight: 500;
+    }
+    .tab-btn.active {
+      background: var(--accent-blue);
+      color: white;
+    }
+    .tab-btn:not(.active):hover {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+    }
+
+    .page { display: none; animation: fadeIn 200ms ease; }
+    .page.active { display: block; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ============================================================
+       SHARED COMPONENTS
+    ============================================================ */
+
+    /* Section heading */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--space-5);
+    }
+
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 13px; font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: 0.03em;
+    }
+
+    .section-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: var(--space-5);
+    }
+
+    .card-sm {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: var(--space-4);
+    }
+
+    /* Grid systems */
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-bottom: var(--space-6); }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-bottom: var(--space-6); }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); margin-bottom: var(--space-6); }
+    .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-4); margin-bottom: var(--space-6); }
+    .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-4); margin-bottom: var(--space-6); }
+
+    /* ============================================================
+       STAT CARD
+    ============================================================ */
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: var(--space-5);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 200ms;
+    }
+    .stat-card:hover { border-color: var(--border); }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: 12px 12px 0 0;
+    }
+    .stat-card.blue::after { background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); }
+    .stat-card.green::after { background: linear-gradient(90deg, var(--accent-green), #10b981); }
+    .stat-card.amber::after { background: linear-gradient(90deg, var(--accent-amber), #f97316); }
+    .stat-card.violet::after { background: linear-gradient(90deg, var(--accent-violet), var(--accent-blue)); }
+
+    .stat-label { font-size: 11.5px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--space-3); }
+    .stat-value { font-family: var(--font-heading); font-size: 26px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+    .stat-sub {
+      font-size: 12px; color: var(--text-secondary); margin-top: var(--space-2);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .stat-trend { font-size: 11px; font-weight: 600; }
+    .stat-trend.up { color: var(--accent-green); }
+    .stat-trend.down { color: var(--accent-red); }
+
+    .stat-icon {
+      position: absolute; top: 16px; right: 16px;
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stat-icon.blue { background: rgba(59,130,246,0.12); }
+    .stat-icon.green { background: rgba(34,197,94,0.12); }
+    .stat-icon.amber { background: rgba(245,158,11,0.12); }
+    .stat-icon.violet { background: rgba(139,92,246,0.12); }
+
+    /* ============================================================
+       MINI SPARKLINE (CSS bar chart)
+    ============================================================ */
+    .sparkline {
+      display: flex; align-items: flex-end; gap: 2px;
+      height: 28px; margin-top: var(--space-3);
+    }
+    .spark-bar {
+      flex: 1;
+      background: var(--accent-blue);
+      opacity: 0.35;
+      border-radius: 2px 2px 0 0;
+      transition: opacity 150ms;
+    }
+    .spark-bar:hover { opacity: 0.8; }
+    .spark-bar.peak { opacity: 0.8; }
+
+    /* ============================================================
+       CALL VOLUME CHART (CSS bar chart)
+    ============================================================ */
+    .bar-chart-wrap {
+      padding: var(--space-4) 0 0;
+    }
+    .bar-chart {
+      display: flex; align-items: flex-end; gap: 6px;
+      height: 140px;
+    }
+    .bar-col {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .bar-stack {
+      width: 100%;
+      border-radius: 4px 4px 0 0;
+      transition: opacity 150ms;
+      cursor: pointer;
+    }
+    .bar-stack:hover { opacity: 0.8; }
+    .bar-label { font-size: 10px; color: var(--text-muted); font-family: var(--font-heading); }
+
+    /* ============================================================
+       TENANTS TABLE (page 2)
+    ============================================================ */
+    .table-wrap {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .table-header-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
+      padding: 10px var(--space-5);
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-elevated);
+    }
+
+    .th {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+
+    .table-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
+      padding: 14px var(--space-5);
+      border-bottom: 1px solid var(--border-subtle);
+      align-items: center;
+      transition: background 150ms;
+      cursor: pointer;
+    }
+    .table-row:last-child { border-bottom: none; }
+    .table-row:hover { background: var(--bg-elevated); }
+
+    .td { font-size: 13.5px; color: var(--text-secondary); }
+    .td.primary { color: var(--text-primary); font-weight: 500; display: flex; align-items: center; gap: var(--space-3); }
+
+    .tenant-avatar {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: white;
+      flex-shrink: 0;
+    }
+
+    .pill {
+      display: inline-flex; align-items: center;
+      padding: 3px 9px;
+      border-radius: 99px;
+      font-size: 11px; font-weight: 600;
+      font-family: var(--font-heading);
+    }
+    .pill.active { background: rgba(34,197,94,0.12); color: var(--accent-green); border: 1px solid rgba(34,197,94,0.2); }
+    .pill.trial { background: rgba(245,158,11,0.12); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.2); }
+    .pill.suspended { background: rgba(239,68,68,0.1); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.2); }
+    .pill.niche { background: rgba(139,92,246,0.1); color: var(--accent-violet); border: 1px solid rgba(139,92,246,0.2); }
+    .pill.blue { background: rgba(59,130,246,0.1); color: var(--accent-blue); border: 1px solid rgba(59,130,246,0.2); }
+
+    .icon-btn {
+      width: 28px; height: 28px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--bg-overlay); border-color: var(--border); }
+
+    /* ============================================================
+       DEBUG LOGS (page 3)
+    ============================================================ */
+    .log-terminal {
+      background: #080d1a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      font-family: var(--font-heading);
+      font-size: 12px;
+      overflow: hidden;
+    }
+
+    .terminal-bar {
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 10px var(--space-5);
+      display: flex; align-items: center; gap: var(--space-4);
+    }
+
+    .terminal-dots { display: flex; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.red { background: #FF5F57; }
+    .dot.amber { background: #FFBD2E; }
+    .dot.green { background: #28CA41; }
+
+    .terminal-title {
+      font-size: 12px; color: var(--text-muted);
+      flex: 1; text-align: center;
+    }
+
+    .log-body { padding: var(--space-4) var(--space-5); max-height: 380px; overflow-y: auto; }
+
+    .log-line {
+      display: grid; grid-template-columns: 160px 80px auto;
+      gap: var(--space-4);
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      line-height: 1.5;
+    }
+    .log-line:last-child { border-bottom: none; }
+
+    .log-time { color: #475569; }
+    .log-level { font-weight: 700; }
+    .log-level.info { color: var(--accent-blue); }
+    .log-level.warn { color: var(--accent-amber); }
+    .log-level.error { color: var(--accent-red); }
+    .log-level.ok { color: var(--accent-green); }
+    .log-msg { color: #94A3B8; }
+    .log-msg strong { color: var(--text-primary); }
+    .log-msg .tag { color: var(--accent-violet); }
+
+    /* ============================================================
+       AGENT CONFIG EDITOR (page 4)
+    ============================================================ */
+    .form-group { margin-bottom: var(--space-5); }
+
+    .form-label {
+      display: block;
+      font-size: 12px; font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 13.5px;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      outline: none;
+      transition: border-color 150ms, box-shadow 150ms;
+    }
+    .form-input:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    .form-input::placeholder { color: var(--text-muted); }
+
+    select.form-input { cursor: pointer; }
+
+    .form-hint {
+      font-size: 11.5px; color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .slider-row {
+      display: flex; align-items: center; gap: var(--space-4);
+    }
+    .slider-row input[type="range"] {
+      flex: 1; accent-color: var(--accent-blue);
+      height: 4px; cursor: pointer;
+    }
+    .slider-val {
+      font-family: var(--font-heading);
+      font-size: 13px; font-weight: 700;
+      color: var(--accent-blue);
+      min-width: 32px; text-align: right;
+    }
+
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px var(--space-4);
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .toggle-info { }
+    .toggle-label { font-size: 13.5px; color: var(--text-primary); font-weight: 500; }
+    .toggle-desc { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+
+    .toggle {
+      width: 40px; height: 22px;
+      background: var(--border);
+      border-radius: 99px;
+      position: relative;
+      cursor: pointer;
+      transition: background 200ms;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: var(--accent-blue); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 200ms;
+    }
+    .toggle.on::after { transform: translateX(18px); }
+
+    /* ============================================================
+       MINI RING CHART (SVG donut)
+    ============================================================ */
+    .ring-chart-wrap { display: flex; align-items: center; gap: var(--space-5); }
+    .ring-legend { display: flex; flex-direction: column; gap: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .legend-val { margin-left: auto; font-family: var(--font-heading); font-weight: 600; color: var(--text-primary); }
+
+    /* ============================================================
+       PAGE 1 — OVERVIEW DASHBOARD
+    ============================================================ */
+
+    .live-calls-list { display: flex; flex-direction: column; gap: 8px; }
+    .live-call-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+    }
+    .live-pulse { width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; flex-shrink: 0; animation: pulse-dot 1.5s infinite; }
+    .live-call-tenant { font-size: 12.5px; font-weight: 600; color: var(--text-primary); flex: 1; }
+    .live-call-duration { font-family: var(--font-heading); font-size: 12px; color: var(--accent-cyan); }
+    .live-call-niche { font-size: 11px; color: var(--text-muted); }
+
+    .alert-list { display: flex; flex-direction: column; gap: 8px; }
+    .alert-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      border-left: 3px solid transparent;
+    }
+    .alert-item.warn { border-left-color: var(--accent-amber); }
+    .alert-item.error { border-left-color: var(--accent-red); }
+    .alert-item.info { border-left-color: var(--accent-blue); }
+    .alert-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+    .alert-dot.warn { background: var(--accent-amber); }
+    .alert-dot.error { background: var(--accent-red); }
+    .alert-dot.info { background: var(--accent-blue); }
+    .alert-text { font-size: 12.5px; color: var(--text-secondary); }
+    .alert-text strong { color: var(--text-primary); display: block; margin-bottom: 2px; font-size: 13px; }
+    .alert-time { font-size: 11px; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+
+    /* ============================================================
+       SCROLLBAR
+    ============================================================ */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">A</div>
+      <div>
+        <div class="logo-text"><span>A.L.F.I.E</span></div>
+        <div class="sidebar-badge">SUPER ADMIN</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Operations</div>
+
+      <div class="nav-item active" onclick="showPage('overview',this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        Overview
+        <span class="nav-badge">3</span>
+      </div>
+
+      <div class="nav-item" onclick="showPage('tenants',this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Tenants
+      </div>
+
+      <div class="nav-item" onclick="showPage('logs',this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Debug Logs
+      </div>
+
+      <div class="nav-item" onclick="showPage('config',this)">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Agent Config
+      </div>
+
+      <div class="nav-section-label" style="margin-top:12px;">Billing</div>
+
+      <div class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        Revenue
+      </div>
+
+      <div class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        </svg>
+        Credits
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="admin-profile">
+        <div class="avatar">S</div>
+        <div class="admin-info">
+          <div class="admin-name">SAM</div>
+          <div class="admin-role">Owner · Super Admin</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="topbar-title">// overview</div>
+      <div class="topbar-actions">
+        <div class="status-pill">
+          <div class="status-dot"></div>
+          All systems operational
+        </div>
+        <button class="btn btn-ghost" style="font-size:12px; padding:6px 12px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Alerts
+        </button>
+        <button class="btn btn-primary" style="font-size:12px; padding:6px 14px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Tenant
+        </button>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ======================================================
+           PAGE 1 — OVERVIEW
+      ====================================================== -->
+      <div class="page active" id="page-overview">
+
+        <!-- KPI Stats Row -->
+        <div class="grid-4">
+          <div class="stat-card blue">
+            <div class="stat-icon blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.13h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.69a16 16 0 0 0 5.4 5.4l.91-.91a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21 15.5l.02 1.42z"/></svg>
+            </div>
+            <div class="stat-label">Total Calls Today</div>
+            <div class="stat-value">1,847</div>
+            <div class="sparkline">
+              <div class="spark-bar" style="height:40%"></div><div class="spark-bar" style="height:55%"></div>
+              <div class="spark-bar" style="height:70%"></div><div class="spark-bar" style="height:45%"></div>
+              <div class="spark-bar" style="height:85%"></div><div class="spark-bar" style="height:60%"></div>
+              <div class="spark-bar peak" style="height:100%"></div><div class="spark-bar" style="height:72%"></div>
+            </div>
+            <div class="stat-sub"><span class="stat-trend up">↑ 12.4%</span> vs yesterday</div>
+          </div>
+
+          <div class="stat-card green">
+            <div class="stat-icon green">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div class="stat-label">Active Tenants</div>
+            <div class="stat-value">23</div>
+            <div class="sparkline">
+              <div class="spark-bar" style="height:60%; background:var(--accent-green)"></div>
+              <div class="spark-bar" style="height:65%; background:var(--accent-green)"></div>
+              <div class="spark-bar" style="height:70%; background:var(--accent-green)"></div>
+              <div class="spark-bar" style="height:68%; background:var(--accent-green)"></div>
+              <div class="spark-bar peak" style="height:85%; background:var(--accent-green)"></div>
+              <div class="spark-bar" style="height:75%; background:var(--accent-green)"></div>
+              <div class="spark-bar" style="height:82%; background:var(--accent-green)"></div>
+              <div class="spark-bar" style="height:100%; background:var(--accent-green)"></div>
+            </div>
+            <div class="stat-sub"><span class="stat-trend up">↑ 3</span> new this month</div>
+          </div>
+
+          <div class="stat-card amber">
+            <div class="stat-icon amber">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="stat-label">Revenue (MTD)</div>
+            <div class="stat-value">$4,290</div>
+            <div class="sparkline">
+              <div class="spark-bar" style="height:30%; background:var(--accent-amber)"></div>
+              <div class="spark-bar" style="height:42%; background:var(--accent-amber)"></div>
+              <div class="spark-bar" style="height:55%; background:var(--accent-amber)"></div>
+              <div class="spark-bar" style="height:68%; background:var(--accent-amber)"></div>
+              <div class="spark-bar" style="height:72%; background:var(--accent-amber)"></div>
+              <div class="spark-bar" style="height:80%; background:var(--accent-amber)"></div>
+              <div class="spark-bar peak" style="height:100%; background:var(--accent-amber)"></div>
+              <div class="spark-bar" style="height:88%; background:var(--accent-amber)"></div>
+            </div>
+            <div class="stat-sub"><span class="stat-trend up">↑ 8.1%</span> vs last month</div>
+          </div>
+
+          <div class="stat-card violet">
+            <div class="stat-icon violet">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="stat-label">Avg Call Duration</div>
+            <div class="stat-value">3:42</div>
+            <div class="sparkline">
+              <div class="spark-bar" style="height:70%; background:var(--accent-violet)"></div>
+              <div class="spark-bar" style="height:50%; background:var(--accent-violet)"></div>
+              <div class="spark-bar peak" style="height:90%; background:var(--accent-violet)"></div>
+              <div class="spark-bar" style="height:65%; background:var(--accent-violet)"></div>
+              <div class="spark-bar" style="height:80%; background:var(--accent-violet)"></div>
+              <div class="spark-bar" style="height:55%; background:var(--accent-violet)"></div>
+              <div class="spark-bar" style="height:78%; background:var(--accent-violet)"></div>
+              <div class="spark-bar" style="height:62%; background:var(--accent-violet)"></div>
+            </div>
+            <div class="stat-sub"><span class="stat-trend down">↓ 0:18</span> vs last week</div>
+          </div>
+        </div>
+
+        <!-- Call Volume Chart + Ring Chart -->
+        <div class="grid-2-1" style="margin-bottom: var(--space-6);">
+          <div class="card">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Call Volume — Last 7 Days</div>
+                <div class="section-sub">Calls per tenant segment, daily breakdown</div>
+              </div>
+              <button class="btn btn-ghost" style="font-size:11.5px; padding:5px 10px;">Export CSV</button>
+            </div>
+            <div class="bar-chart-wrap">
+              <div class="bar-chart">
+                <div class="bar-col">
+                  <div class="bar-stack" style="height:60%; background: linear-gradient(180deg, #3B82F6, #1E40AF); border-radius:4px 4px 0 0;"></div>
+                  <div class="bar-stack" style="height:20%; background: rgba(139,92,246,0.6); border-radius:0;"></div>
+                  <div class="bar-label">Mon</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack" style="height:75%; background: linear-gradient(180deg, #3B82F6, #1E40AF); border-radius:4px 4px 0 0;"></div>
+                  <div class="bar-stack" style="height:18%; background: rgba(139,92,246,0.6); border-radius:0;"></div>
+                  <div class="bar-label">Tue</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack" style="height:55%; background: linear-gradient(180deg, #3B82F6, #1E40AF); border-radius:4px 4px 0 0;"></div>
+                  <div class="bar-stack" style="height:25%; background: rgba(139,92,246,0.6); border-radius:0;"></div>
+                  <div class="bar-label">Wed</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack" style="height:90%; background: linear-gradient(180deg, #3B82F6, #1E40AF); border-radius:4px 4px 0 0;"></div>
+                  <div class="bar-stack" style="height:22%; background: rgba(139,92,246,0.6); border-radius:0;"></div>
+                  <div class="bar-label">Thu</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack" style="height:80%; background: linear-gradient(180deg, #3B82F6, #1E40AF); border-radius:4px 4px 0 0;"></div>
+                  <div class="bar-stack" style="height:30%; background: rgba(139,92,246,0.6); border-radius:0;"></div>
+                  <div class="bar-label">Fri</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack" style="height:45%; background: linear-gradient(180deg, #3B82F6, #1E40AF); border-radius:4px 4px 0 0;"></div>
+                  <div class="bar-stack" style="height:15%; background: rgba(139,92,246,0.6); border-radius:0;"></div>
+                  <div class="bar-label">Sat</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack" style="height:38%; background: linear-gradient(180deg, #3B82F6, #1E40AF); border-radius:4px 4px 0 0;"></div>
+                  <div class="bar-stack" style="height:12%; background: rgba(139,92,246,0.6); border-radius:0;"></div>
+                  <div class="bar-label">Sun</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:16px; margin-top:12px;">
+                <div style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-muted);">
+                  <div style="width:10px;height:10px;background:var(--accent-blue);border-radius:2px;"></div> Real Estate
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-muted);">
+                  <div style="width:10px;height:10px;background:rgba(139,92,246,0.6);border-radius:2px;"></div> Car Rental
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Niche Breakdown</div>
+                <div class="section-sub">By call volume</div>
+              </div>
+            </div>
+            <div class="ring-chart-wrap" style="flex-direction: column; gap: 16px;">
+              <!-- SVG Donut -->
+              <svg width="120" height="120" viewBox="0 0 120 120" style="margin:0 auto;">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--bg-elevated)" stroke-width="16"/>
+                <!-- Real Estate: 67% = 314 of 469 circumference -->
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#3B82F6" stroke-width="16"
+                  stroke-dasharray="314 155" stroke-dashoffset="78" stroke-linecap="round"/>
+                <!-- Car Rental: 22% -->
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#8B5CF6" stroke-width="16"
+                  stroke-dasharray="103 366" stroke-dashoffset="-236" stroke-linecap="round"/>
+                <!-- Other: 11% -->
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#06B6D4" stroke-width="16"
+                  stroke-dasharray="52 417" stroke-dashoffset="-339" stroke-linecap="round"/>
+                <text x="60" y="56" text-anchor="middle" font-size="18" font-weight="700" fill="#F8FAFC" font-family="Fira Code">67%</text>
+                <text x="60" y="72" text-anchor="middle" font-size="9" fill="#94A3B8" font-family="Fira Sans">Real Estate</text>
+              </svg>
+              <div class="ring-legend" style="width:100%;">
+                <div class="legend-item"><div class="legend-dot" style="background:#3B82F6;"></div> Real Estate <span class="legend-val">67%</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#8B5CF6;"></div> Car Rental <span class="legend-val">22%</span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#06B6D4;"></div> Other <span class="legend-val">11%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Calls + Alerts -->
+        <div class="grid-2">
+          <div class="card-sm">
+            <div class="section-header">
+              <div>
+                <div class="section-title">Live Calls Now</div>
+                <div class="section-sub">4 active connections</div>
+              </div>
+              <div class="pill active">● LIVE</div>
+            </div>
+            <div class="live-calls-list">
+              <div class="live-call-row">
+                <div class="live-pulse"></div>
+                <div style="flex:1;">
+                  <div class="live-call-tenant">Alfie Realty PK</div>
+                  <div class="live-call-niche">real_estate · nova-2 · llama-3.1</div>
+                </div>
+                <div class="live-call-duration">2:14</div>
+              </div>
+              <div class="live-call-row">
+                <div class="live-pulse"></div>
+                <div style="flex:1;">
+                  <div class="live-call-tenant">DriveFast Rentals</div>
+                  <div class="live-call-niche">car_rental · nova-2 · llama-3.1</div>
+                </div>
+                <div class="live-call-duration">0:47</div>
+              </div>
+              <div class="live-call-row">
+                <div class="live-pulse"></div>
+                <div style="flex:1;">
+                  <div class="live-call-tenant">HomeFinders Ltd</div>
+                  <div class="live-call-niche">real_estate · nova-2 · llama-3.1</div>
+                </div>
+                <div class="live-call-duration">4:03</div>
+              </div>
+              <div class="live-call-row">
+                <div class="live-pulse"></div>
+                <div style="flex:1;">
+                  <div class="live-call-tenant">AutoCity Dubai</div>
+                  <div class="live-call-niche">car_rental · nova-2 · llama-3.1</div>
+                </div>
+                <div class="live-call-duration">1:22</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-sm">
+            <div class="section-header">
+              <div>
+                <div class="section-title">System Alerts</div>
+                <div class="section-sub">Last 6 hours</div>
+              </div>
+            </div>
+            <div class="alert-list">
+              <div class="alert-item error">
+                <div class="alert-dot error"></div>
+                <div class="alert-text">
+                  <strong>STT Latency Spike</strong>
+                  Deepgram P99 → 1840ms on tenant <code style="color:var(--accent-cyan)">drivefast_ae</code>
+                </div>
+                <div class="alert-time">2m ago</div>
+              </div>
+              <div class="alert-item warn">
+                <div class="alert-dot warn"></div>
+                <div class="alert-text">
+                  <strong>Credit Threshold</strong>
+                  HomeFinders Ltd at 87% of monthly limit
+                </div>
+                <div class="alert-time">14m ago</div>
+              </div>
+              <div class="alert-item warn">
+                <div class="alert-dot warn"></div>
+                <div class="alert-text">
+                  <strong>n8n Webhook</strong>
+                  3 retries before delivery on call_completed event
+                </div>
+                <div class="alert-time">1h ago</div>
+              </div>
+              <div class="alert-item info">
+                <div class="alert-dot info"></div>
+                <div class="alert-text">
+                  <strong>New Tenant Signup</strong>
+                  PropertyBridge UAE provisioned successfully
+                </div>
+                <div class="alert-time">3h ago</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /page-overview -->
+
+      <!-- ======================================================
+           PAGE 2 — TENANTS
+      ====================================================== -->
+      <div class="page" id="page-tenants">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Tenant Management</div>
+            <div class="section-sub">All client workspaces — click a row to manage</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <input class="form-input" style="width:200px; padding:7px 12px; font-size:13px;" placeholder="Search tenants..." />
+            <button class="btn btn-primary">+ New Tenant</button>
+          </div>
+        </div>
+
+        <!-- Stats strip -->
+        <div class="grid-4" style="margin-bottom:var(--space-5);">
+          <div class="stat-card blue" style="padding:14px 16px;">
+            <div class="stat-label" style="margin-bottom:6px;">Total</div>
+            <div class="stat-value" style="font-size:20px;">26</div>
+          </div>
+          <div class="stat-card green" style="padding:14px 16px;">
+            <div class="stat-label" style="margin-bottom:6px;">Active</div>
+            <div class="stat-value" style="font-size:20px;">23</div>
+          </div>
+          <div class="stat-card amber" style="padding:14px 16px;">
+            <div class="stat-label" style="margin-bottom:6px;">Trial</div>
+            <div class="stat-value" style="font-size:20px;">2</div>
+          </div>
+          <div class="stat-card violet" style="padding:14px 16px;">
+            <div class="stat-label" style="margin-bottom:6px;">Suspended</div>
+            <div class="stat-value" style="font-size:20px;">1</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-header-row">
+            <div class="th">Tenant</div>
+            <div class="th">Status</div>
+            <div class="th">Niche</div>
+            <div class="th">Calls Today</div>
+            <div class="th">Credits Used</div>
+            <div class="th" style="text-align:right;">Actions</div>
+          </div>
+
+          <!-- Rows -->
+          <div class="table-row">
+            <div class="td primary">
+              <div class="tenant-avatar" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6);">AR</div>
+              <div>
+                <div>Alfie Realty PK</div>
+                <div style="font-size:11px; color:var(--text-muted); font-weight:400;">alfie_realty_pk</div>
+              </div>
+            </div>
+            <div class="td"><span class="pill active">Active</span></div>
+            <div class="td"><span class="pill niche">real_estate</span></div>
+            <div class="td" style="font-family:var(--font-heading); color:var(--text-primary);">412</div>
+            <div class="td">
+              <div style="font-family:var(--font-heading); color:var(--accent-amber);">$20.60</div>
+              <div style="font-size:11px; color:var(--text-muted);">of $50/mo</div>
+            </div>
+            <div class="td" style="display:flex; gap:6px; justify-content:flex-end;">
+              <div class="icon-btn" title="Edit Config">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </div>
+              <div class="icon-btn" title="View Logs">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </div>
+              <div class="icon-btn" title="Suspend">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-row">
+            <div class="td primary">
+              <div class="tenant-avatar" style="background:linear-gradient(135deg,#F59E0B,#EF4444);">DF</div>
+              <div>
+                <div>DriveFast Rentals</div>
+                <div style="font-size:11px; color:var(--text-muted); font-weight:400;">drivefast_ae</div>
+              </div>
+            </div>
+            <div class="td"><span class="pill active">Active</span></div>
+            <div class="td"><span class="pill blue">car_rental</span></div>
+            <div class="td" style="font-family:var(--font-heading); color:var(--text-primary);">287</div>
+            <div class="td">
+              <div style="font-family:var(--font-heading); color:var(--accent-amber);">$14.35</div>
+              <div style="font-size:11px; color:var(--text-muted);">of $50/mo</div>
+            </div>
+            <div class="td" style="display:flex; gap:6px; justify-content:flex-end;">
+              <div class="icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+              <div class="icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+              <div class="icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+            </div>
+          </div>
+
+          <div class="table-row">
+            <div class="td primary">
+              <div class="tenant-avatar" style="background:linear-gradient(135deg,#22C55E,#06B6D4);">HF</div>
+              <div>
+                <div>HomeFinders Ltd</div>
+                <div style="font-size:11px; color:var(--text-muted); font-weight:400;">homefinders_uk</div>
+              </div>
+            </div>
+            <div class="td"><span class="pill trial">Trial</span></div>
+            <div class="td"><span class="pill niche">real_estate</span></div>
+            <div class="td" style="font-family:var(--font-heading); color:var(--text-primary);">89</div>
+            <div class="td">
+              <div style="font-family:var(--font-heading); color:var(--accent-red);">$43.50</div>
+              <div style="font-size:11px; color:var(--accent-red);">87% of $50 limit</div>
+            </div>
+            <div class="td" style="display:flex; gap:6px; justify-content:flex-end;">
+              <div class="icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+              <div class="icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+              <div class="icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+            </div>
+          </div>
+
+          <div class="table-row" style="opacity:0.6;">
+            <div class="td primary">
+              <div class="tenant-avatar" style="background:var(--bg-overlay);">??</div>
+              <div>
+                <div>AutoCity Dubai</div>
+                <div style="font-size:11px; color:var(--text-muted); font-weight:400;">autocity_dxb</div>
+              </div>
+            </div>
+            <div class="td"><span class="pill suspended">Suspended</span></div>
+            <div class="td"><span class="pill blue">car_rental</span></div>
+            <div class="td" style="font-family:var(--font-heading); color:var(--text-muted);">—</div>
+            <div class="td">
+              <div style="font-family:var(--font-heading); color:var(--text-muted);">—</div>
+            </div>
+            <div class="td" style="display:flex; gap:6px; justify-content:flex-end;">
+              <div class="icon-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /page-tenants -->
+
+      <!-- ======================================================
+           PAGE 3 — DEBUG LOGS
+      ====================================================== -->
+      <div class="page" id="page-logs">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Debug Logs — Live Feed</div>
+            <div class="section-sub">Streaming from alfie_telemetry · Postgres · 100 latest events</div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select class="form-input" style="width:160px; padding:6px 10px; font-size:12.5px;">
+              <option>All Tenants</option>
+              <option>alfie_realty_pk</option>
+              <option>drivefast_ae</option>
+              <option>homefinders_uk</option>
+            </select>
+            <select class="form-input" style="width:120px; padding:6px 10px; font-size:12.5px;">
+              <option>All Levels</option>
+              <option>ERROR</option>
+              <option>WARN</option>
+              <option>INFO</option>
+              <option>OK</option>
+            </select>
+            <button class="btn btn-ghost" style="font-size:12px; padding:6px 12px;">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- Mini KPI strip -->
+        <div class="grid-4" style="margin-bottom:var(--space-5);">
+          <div class="card-sm" style="text-align:center;">
+            <div class="stat-label" style="margin-bottom:4px;">Events Today</div>
+            <div style="font-family:var(--font-heading); font-size:22px; font-weight:700; color:var(--text-primary);">18,420</div>
+          </div>
+          <div class="card-sm" style="text-align:center; border-color:rgba(239,68,68,0.3);">
+            <div class="stat-label" style="margin-bottom:4px;">Errors</div>
+            <div style="font-family:var(--font-heading); font-size:22px; font-weight:700; color:var(--accent-red);">7</div>
+          </div>
+          <div class="card-sm" style="text-align:center; border-color:rgba(245,158,11,0.3);">
+            <div class="stat-label" style="margin-bottom:4px;">Warnings</div>
+            <div style="font-family:var(--font-heading); font-size:22px; font-weight:700; color:var(--accent-amber);">31</div>
+          </div>
+          <div class="card-sm" style="text-align:center; border-color:rgba(34,197,94,0.3);">
+            <div class="stat-label" style="margin-bottom:4px;">Calls Completed OK</div>
+            <div style="font-family:var(--font-heading); font-size:22px; font-weight:700; color:var(--accent-green);">1,840</div>
+          </div>
+        </div>
+
+        <div class="log-terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dots">
+              <div class="dot red"></div><div class="dot amber"></div><div class="dot green"></div>
+            </div>
+            <div class="terminal-title">alfie_telemetry — live stream</div>
+            <div class="status-pill"><div class="status-dot"></div> streaming</div>
+          </div>
+          <div class="log-body">
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:14:02</div>
+              <div class="log-level ok">OK</div>
+              <div class="log-msg">CALL_COMPLETED <strong>alfie_realty_pk</strong> · room=<span class="tag">alfie-call-9x2k</span> · duration=<strong>4m12s</strong> · credits=<strong>$0.21</strong></div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:13:57</div>
+              <div class="log-level info">INFO</div>
+              <div class="log-msg">TELEMETRY_EVENT tenant=<span class="tag">drivefast_ae</span> · event=tool_call · tool=<strong>search_vehicles</strong> · latency=<strong>312ms</strong></div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:13:45</div>
+              <div class="log-level error">ERR</div>
+              <div class="log-msg">STT_LATENCY_SPIKE tenant=<span class="tag">drivefast_ae</span> · p99=<strong>1840ms</strong> · model=nova-2 · threshold=1000ms exceeded</div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:13:30</div>
+              <div class="log-level ok">OK</div>
+              <div class="log-msg">CALL_COMPLETED <strong>homefinders_uk</strong> · room=<span class="tag">alfie-call-7m1z</span> · duration=2m48s · credits=<strong>$0.14</strong></div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:12:14</div>
+              <div class="log-level warn">WARN</div>
+              <div class="log-msg">CREDIT_THRESHOLD tenant=<span class="tag">homefinders_uk</span> · used=<strong>$43.50</strong> / limit=<strong>$50.00</strong> · 87.0%</div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:11:03</div>
+              <div class="log-level info">INFO</div>
+              <div class="log-msg">METRIC_UPDATE tenant=<span class="tag">alfie_realty_pk</span> · event=tool_call · tool=<strong>book_viewing</strong> · status=success</div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:10:41</div>
+              <div class="log-level warn">WARN</div>
+              <div class="log-msg">N8N_WEBHOOK_RETRY tenant=<span class="tag">alfie_realty_pk</span> · attempt=3 · event=call_completed · final_status=200</div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:09:19</div>
+              <div class="log-level ok">OK</div>
+              <div class="log-msg">AGENT_INIT tenant=<span class="tag">autocity_dxb</span> ← <strong>BLOCKED</strong> — tenant status=suspended, call rejected</div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:08:55</div>
+              <div class="log-level info">INFO</div>
+              <div class="log-msg">TELEMETRY_POOL_INIT · pool_size=10 · db=<span class="tag">twenty_db</span> · host=postgres · status=ready</div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:07:30</div>
+              <div class="log-level ok">OK</div>
+              <div class="log-msg">CALL_COMPLETED <strong>drivefast_ae</strong> · room=<span class="tag">alfie-call-3r8p</span> · duration=1m05s · credits=<strong>$0.05</strong></div>
+            </div>
+            <div class="log-line">
+              <div class="log-time">2026-08-05 01:06:12</div>
+              <div class="log-level info">INFO</div>
+              <div class="log-msg">SIP_DISPATCH tenant=<span class="tag">alfie_realty_pk</span> · phone=+92301****890 · room=<span class="tag">alfie-call-2k9n</span> · agent_ready</div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /page-logs -->
+
+      <!-- ======================================================
+           PAGE 4 — AGENT CONFIG EDITOR
+      ====================================================== -->
+      <div class="page" id="page-config">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Agent Config Editor</div>
+            <div class="section-sub">Changes take effect on the next incoming call — no redeploy needed</div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select class="form-input" style="width:200px; padding:7px 12px; font-size:13px;" id="tenant-select">
+              <option>alfie_realty_pk — Alfie Realty PK</option>
+              <option>drivefast_ae — DriveFast Rentals</option>
+              <option>homefinders_uk — HomeFinders Ltd</option>
+            </select>
+            <button class="btn btn-primary">Save to CRM</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- LEFT: LLM + STT + VAD -->
+          <div style="display:flex; flex-direction:column; gap:var(--space-4);">
+
+            <div class="card">
+              <div class="section-title" style="margin-bottom:var(--space-5);">🤖 LLM Configuration</div>
+
+              <div class="form-group">
+                <label class="form-label">Model</label>
+                <select class="form-input">
+                  <option>meta-llama/llama-3.1-8b-instruct</option>
+                  <option>mistralai/mistral-nemo</option>
+                  <option>openai/gpt-4o-mini</option>
+                  <option>anthropic/claude-haiku</option>
+                </select>
+                <div class="form-hint">Via OpenRouter — lower latency models preferred for voice</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Temperature <span style="font-style:italic;color:var(--text-muted);">(creativity)</span></label>
+                <div class="slider-row">
+                  <input type="range" min="0" max="1" step="0.05" value="0.7" oninput="document.getElementById('temp-val').textContent=parseFloat(this.value).toFixed(2)" />
+                  <div class="slider-val" id="temp-val">0.70</div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Max Tokens</label>
+                <div class="slider-row">
+                  <input type="range" min="100" max="2000" step="50" value="1000" oninput="document.getElementById('tok-val').textContent=this.value" />
+                  <div class="slider-val" id="tok-val">1000</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title" style="margin-bottom:var(--space-5);">🎤 STT Configuration</div>
+
+              <div class="form-group">
+                <label class="form-label">Deepgram Model</label>
+                <select class="form-input">
+                  <option>nova-2</option>
+                  <option>nova-2-phonecall</option>
+                  <option>nova-2-conversationalai</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Language</label>
+                <select class="form-input">
+                  <option value="multi">Multi (auto-detect)</option>
+                  <option value="en-US">English (US)</option>
+                  <option value="en-GB">English (UK)</option>
+                  <option value="ar">Arabic</option>
+                  <option value="ur">Urdu</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-bottom:0;">
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">Profanity Filter</div>
+                    <div class="toggle-desc">Redact profanity in transcripts</div>
+                  </div>
+                  <div class="toggle" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">Smart Punctuation</div>
+                    <div class="toggle-desc">Auto-format transcripts</div>
+                  </div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title" style="margin-bottom:var(--space-5);">🔊 VAD Settings</div>
+
+              <div class="form-group">
+                <label class="form-label">Min Silence Duration (s)</label>
+                <div class="slider-row">
+                  <input type="range" min="0.2" max="2.0" step="0.1" value="0.6" oninput="document.getElementById('sil-val').textContent=parseFloat(this.value).toFixed(1)+'s'" />
+                  <div class="slider-val" id="sil-val">0.6s</div>
+                </div>
+                <div class="form-hint">Lower = more responsive. Higher = less interruptions.</div>
+              </div>
+
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Activation Threshold</label>
+                <div class="slider-row">
+                  <input type="range" min="0.1" max="0.9" step="0.05" value="0.3" oninput="document.getElementById('vad-val').textContent=parseFloat(this.value).toFixed(2)" />
+                  <div class="slider-val" id="vad-val">0.30</div>
+                </div>
+                <div class="form-hint">Probability needed to consider audio as speech.</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- RIGHT: TTS + Persona + Tools -->
+          <div style="display:flex; flex-direction:column; gap:var(--space-4);">
+
+            <div class="card">
+              <div class="section-title" style="margin-bottom:var(--space-5);">🗣️ TTS Voice Configuration</div>
+
+              <div class="form-group">
+                <label class="form-label">TTS Provider</label>
+                <select class="form-input">
+                  <option>fish_audio</option>
+                  <option>openai</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Fish Audio Model</label>
+                <select class="form-input">
+                  <option>s2.1-pro</option>
+                  <option>s2.1-flash</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Voice ID (Fish Audio Reference)</label>
+                <input class="form-input" type="text" value="224a2257dd4943209a683d27a5e41439" placeholder="Fish Audio voice reference_id" />
+                <div class="form-hint">Paste any Fish Audio Voice ID to change the agent's voice</div>
+              </div>
+
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Latency Mode</label>
+                <select class="form-input">
+                  <option>balanced</option>
+                  <option>normal</option>
+                  <option>optimized</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title" style="margin-bottom:var(--space-5);">🧠 Persona & Routing</div>
+
+              <div class="form-group">
+                <label class="form-label">Niche</label>
+                <select class="form-input">
+                  <option>real_estate</option>
+                  <option>car_rental</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Greeting Message</label>
+                <input class="form-input" type="text" value="Hello, this is Alfie from Alfie Realty. How can I help with your property search today?" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Custom System Prompt Override</label>
+                <textarea class="form-input" rows="4" style="resize:vertical; line-height:1.5;" placeholder="Optional: override or append to the base persona prompt for this tenant...">You represent Alfie Realty, one of Pakistan's most trusted luxury property consultancies. Our listings span Lahore, Islamabad, and Karachi.</textarea>
+              </div>
+
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Human Agent SIP URI</label>
+                <input class="form-input" type="text" placeholder="sip:agent@yourdomain.com" />
+                <div class="form-hint">Used when caller requests human transfer</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title" style="margin-bottom:var(--space-5);">🛠️ Enabled Tools</div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">core_tools</div>
+                  <div class="toggle-desc">Lead capture + human transfer</div>
+                </div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">real_estate_tools</div>
+                  <div class="toggle-desc">Property search + viewing booking</div>
+                </div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">car_rental_tools</div>
+                  <div class="toggle-desc">Vehicle search + booking</div>
+                </div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="toggle-row" style="margin-bottom:0;">
+                <div class="toggle-info">
+                  <div class="toggle-label">Allow Interruptions</div>
+                  <div class="toggle-desc">Caller can interrupt agent mid-sentence</div>
+                </div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /page-config -->
+
+    </div><!-- /page-content -->
+  </div><!-- /main -->
+
+  <!-- TAB SWITCHER (demo navigation) -->
+  <div class="demo-tabs">
+    <button class="tab-btn active" onclick="showPage('overview',null,this)">Overview</button>
+    <button class="tab-btn" onclick="showPage('tenants',null,this)">Tenants</button>
+    <button class="tab-btn" onclick="showPage('logs',null,this)">Debug Logs</button>
+    <button class="tab-btn" onclick="showPage('config',null,this)">Config Editor</button>
+  </div>
+
+  <script>
+    const PAGE_TITLES = {
+      overview: '// overview',
+      tenants: '// tenant management',
+      logs: '// debug logs · live',
+      config: '// agent config editor'
+    };
+
+    function showPage(id, navEl, tabEl) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + id).classList.add('active');
+      document.getElementById('topbar-title').textContent = PAGE_TITLES[id];
+
+      if (navEl) {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        navEl.classList.add('active');
+      }
+      if (tabEl) {
+        document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+        tabEl.classList.add('active');
+      }
+    }
+
+    // Animate stat values on load
+    function animateValue(el, start, end, duration, prefix='', suffix='') {
+      let startTs = null;
+      const step = (ts) => {
+        if (!startTs) startTs = ts;
+        const progress = Math.min((ts - startTs) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        el.textContent = prefix + Math.floor(start + (end - start) * ease).toLocaleString() + suffix;
+        if (progress < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+
+    window.addEventListener('load', () => {
+      const statEls = document.querySelectorAll('#page-overview .stat-value');
+      animateValue(statEls[0], 0, 1847, 1200);
+      animateValue(statEls[1], 0, 23, 800);
+      animateValue(statEls[3], 0, 222, 900, '', '');
+    });
+  </script>
+</body>
+</html>

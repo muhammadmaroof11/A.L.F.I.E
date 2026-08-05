@@ -1,0 +1,166 @@
+{
+  "name": "Alfie Event Bus Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "alfie-events",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_receiver",
+      "name": "Webhook Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "alfie-events-listener"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.event_type }}",
+                    "rightValue": "lead_captured",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "lead_captured"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.event_type }}",
+                    "rightValue": "call_completed",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "call_completed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "event_router",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "complete",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a data extraction assistant. From the call transcript provided, produce a JSON object with three keys: 'summary' (a 2-3 sentence plain-English summary of the call), 'lead_score' (an integer 1-10 representing intent to buy), 'pipeline_stage' (one of: 'New', 'Contacted', 'Viewing', 'Closed'), and 'extracted_data' (an object with any structured data mentioned: budget, city, property_type, lead_name, lead_phone, outcome)."
+            },
+            {
+              "role": "user",
+              "content": "=Transcript:\n{{ JSON.stringify($json.body.data.transcript) }}"
+            }
+          ]
+        },
+        "options": {
+          "response_format": "json_object"
+        }
+      },
+      "id": "ai_summarize",
+      "name": "AI: Summarize & Extract",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [740, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://twenty-server:3000/rest/interactionLogs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.TWENTY_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"completed\",\n  \"duration\": \"{{ $('Webhook Receiver').item.json.body.data.duration_seconds }}s\",\n  \"recordingUrl\": \"{{ $('Webhook Receiver').item.json.body.data.recording_url }}\",\n  \"summary\": \"{{ JSON.parse($json.message.content).summary }}\",\n  \"leadScore\": {{ JSON.parse($json.message.content).lead_score }},\n  \"pipelineStage\": \"{{ JSON.parse($json.message.content).pipeline_stage }}\",\n  \"transcript\": {{ JSON.stringify($('Webhook Receiver').item.json.body.data.transcript) }},\n  \"extractedData\": {{ JSON.stringify(JSON.parse($json.message.content).extracted_data) }}\n}",
+        "options": {}
+      },
+      "id": "write_interaction_log",
+      "name": "Write InteractionLog to Twenty CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "To", "value": "={{ $json.body.data.phone }}" },
+            { "name": "From", "value": "={{ $env.TWILIO_FROM_NUMBER }}" },
+            { "name": "Body", "value": "=Hi {{ $json.body.data.name }}, thanks for connecting with us! We've saved your details and will be in touch soon." }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sms_lead",
+      "name": "SMS: Confirm Lead Capture",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 180]
+    },
+    {
+      "parameters": {
+        "content": "## Alfie Event Bus\n\n**Routes:**\n- `lead_captured` → Send SMS confirmation to caller\n- `call_completed` → AI summarize transcript → Write InteractionLog to Twenty CRM\n\n**Env Vars needed in n8n:**\n- `TWENTY_API_KEY`\n- `TWILIO_ACCOUNT_SID`\n- `TWILIO_FROM_NUMBER`",
+        "height": 280,
+        "width": 400
+      },
+      "id": "sticky_note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [220, 80]
+    }
+  ],
+  "connections": {
+    "Webhook Receiver": {
+      "main": [[{ "node": "Route by Event Type", "type": "main", "index": 0 }]]
+    },
+    "Route by Event Type": {
+      "main": [
+        [{ "node": "SMS: Confirm Lead Capture", "type": "main", "index": 0 }],
+        [{ "node": "AI: Summarize & Extract", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI: Summarize & Extract": {
+      "main": [[{ "node": "Write InteractionLog to Twenty CRM", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

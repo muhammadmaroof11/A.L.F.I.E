@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  alfie-agent:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - alfie-mongodb
+    secrets:
+      - livekit_api_key
+      - livekit_api_secret
+      - deepgram_api_key
+      - openrouter_api_key
+      - fish_audio_api_key
+    environment:
+      - MONGODB_URI=mongodb://alfie-mongodb:27017
+      - MONGODB_DB_NAME=alfie_ai
+
+  alfie-mongodb:
+    # Use explicit patched version to prevent CVE-2025-14847 MongoBleed
+    image: mongo:8.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
+
+secrets:
+  livekit_api_key:
+    file: ./secrets/livekit_api_key
+  livekit_api_secret:
+    file: ./secrets/livekit_api_secret
+  deepgram_api_key:
+    file: ./secrets/deepgram_api_key
+  openrouter_api_key:
+    file: ./secrets/openrouter_api_key
+  fish_audio_api_key:
+    file: ./secrets/fish_audio_api_key
