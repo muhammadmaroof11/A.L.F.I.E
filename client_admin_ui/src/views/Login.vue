@@ -6,16 +6,27 @@
       
       <div class="relative z-10">
         <h1 class="text-3xl font-bold mb-2 text-white">Welcome back</h1>
-        <p class="text-clientMuted mb-8">Enter your API key to access your workspace.</p>
+        <p class="text-textMuted mb-8">Enter your credentials to access your workspace.</p>
         
-        <form @submit.prevent="handleLogin" class="space-y-6">
+        <form @submit.prevent="handleLogin" class="space-y-5">
           <div>
-            <label class="block text-sm font-medium text-clientMuted mb-2">API Key</label>
+            <label class="block text-sm font-medium text-textSecondary mb-2">Email Address</label>
             <input 
-              v-model="apiKey"
+              v-model="email"
+              type="email" 
+              class="w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all placeholder:text-textMuted"
+              placeholder="admin@company.com"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-textSecondary mb-2">Password</label>
+            <input 
+              v-model="password"
               type="password" 
-              class="w-full bg-clientSurface/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-clientPrimary focus:ring-1 focus:ring-clientPrimary transition-all placeholder:text-white/20"
-              placeholder="alfie_live_..."
+              class="w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all placeholder:text-textMuted"
+              placeholder="Enter your password"
               required
             />
           </div>
@@ -45,7 +56,8 @@ import { useAuthStore } from '../stores/auth';
 const router = useRouter();
 const authStore = useAuthStore();
 
-const apiKey = ref('');
+const email = ref('');
+const password = ref('');
 const error = ref('');
 const loading = ref(false);
 
@@ -53,11 +65,11 @@ const handleLogin = async () => {
   loading.value = true;
   error.value = '';
   
-  const success = await authStore.login(apiKey.value);
+  const success = await authStore.login(email.value, password.value);
   if (success) {
     router.push('/');
   } else {
-    error.value = 'Invalid API key';
+    error.value = 'Invalid email or password';
   }
   loading.value = false;
 };
