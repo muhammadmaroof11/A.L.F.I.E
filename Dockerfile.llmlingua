@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY requirements_llmlingua.txt .
+RUN pip install --no-cache-dir -r requirements_llmlingua.txt
+
+COPY llmlingua_server.py .
+
+EXPOSE 5000
+CMD ["python", "llmlingua_server.py"]
