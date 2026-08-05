@@ -14,6 +14,13 @@ logger = logging.getLogger("telemetry")
 # Initialized once at agent startup via init_telemetry_pool().
 _pool = None
 
+# Callback for real-time WebSocket streaming
+_broadcast_callback = None
+
+def set_broadcast_callback(cb):
+    global _broadcast_callback
+    _broadcast_callback = cb
+
 async def init_telemetry_pool():
     """
     Called once at agent startup (in the prewarm hook).
@@ -106,6 +113,8 @@ class TelemetryLogger:
         }
         logger.info(f"TELEMETRY_EVENT: {payload}")
         await _write_to_db(self.tenant_id, self.call_id, event_type, data)
+        if _broadcast_callback:
+            await _broadcast_callback(payload)
 
     async def update_call_metrics(self, metrics_update: Dict[str, Any]):
         """Log usage metrics (e.g. duration, credits consumed)."""
@@ -117,3 +126,5 @@ class TelemetryLogger:
         }
         logger.info(f"METRICS_UPDATE: {payload}")
         await _write_to_db(self.tenant_id, self.call_id, "METRIC_UPDATE", metrics_update)
+        if _broadcast_callback:
+            await _broadcast_callback(payload)

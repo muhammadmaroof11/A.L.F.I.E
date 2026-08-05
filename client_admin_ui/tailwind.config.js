@@ -7,19 +7,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        bgDeep: '#06070f',
-        bgBase: '#0a0c18',
-        bgElevated: '#0f1221',
-        blue: '#3B82F6',
-        green: '#10B981',
-        amber: '#F59E0B',
-        red: '#EF4444',
-        violet: '#8B5CF6',
-        indigo: '#5E6AD2',
-        cyan: '#06B6D4',
-        textPrimary: '#EDEDEF',
-        textSecondary: '#8A8F98',
-        textMuted: '#4A5060',
+        clientBg: '#05060A',
+        clientSurface: '#12141F',
+        clientPrimary: '#6366f1',
+        clientText: '#f8fafc',
+        clientMuted: '#94a3b8'
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

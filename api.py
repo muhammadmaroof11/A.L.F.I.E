@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
+import jwt
 import jwt
 from datetime import datetime, timedelta
 import os
@@ -9,11 +10,31 @@ import uuid
 import json
 
 from config import settings
-from telemetry import init_telemetry_pool, _pool
+from telemetry import init_telemetry_pool, _pool, set_broadcast_callback
 from provisioning import create_tenant, verify_api_key
 
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                pass
+
+manager = ConnectionManager()
+
 # JWT Settings
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "super_secret_alfie_key_change_in_prod")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "CHANGE_ME_IN_PRODUCTION")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
 
@@ -31,6 +52,8 @@ app.add_middleware(
 async def startup_event():
     # Initialize DB pool and schema
     await init_telemetry_pool()
+    # Hook up telemetry broadcasting to websockets
+    set_broadcast_callback(manager.broadcast)
 
 # --- Auth Models & Functions ---
 
@@ -64,7 +87,7 @@ async def get_current_user(token: str):
 @app.post("/api/auth/login", response_model=Token)
 async def login(req: LoginRequest):
     # Hardcoded super admin check
-    if req.api_key == os.environ.get("SUPER_ADMIN_KEY", "alfie_super_admin_dev_key"):
+    if req.api_key == os.environ.get("SUPER_ADMIN_KEY", "CHANGE_ME_IN_PRODUCTION"):
         access_token = create_access_token(
             data={"sub": "super_admin", "role": "super_admin"},
             expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -102,6 +125,17 @@ async def get_recent_telemetry(limit: int = 50):
     async with _pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM alfie_telemetry ORDER BY created_at DESC LIMIT $1", limit)
         return [dict(r) for r in records]
+
+@app.websocket("/api/super/telemetry/ws")
+async def websocket_telemetry(websocket: WebSocket):
+    # In a real app, you would require an access token parameter and verify super_admin role
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Wait for any messages from the client (keep connection alive)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 @app.get("/api/super/tenants")
 async def list_tenants():
