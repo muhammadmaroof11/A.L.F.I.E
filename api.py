@@ -1,20 +1,31 @@
-from fastapi import (
-    FastAPI,
-    HTTPException,
-    WebSocket,
-    WebSocketDisconnect,
-    Depends,
-)
+import logging
+from contextlib import asynccontextmanager
+from typing import List, Optional
+import asyncio
+import json
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, List
-from prometheus_fastapi_instrumentator import Instrumentator
-import jwt
-from datetime import datetime, timedelta
 import os
+import jwt
+from auth import SECRET_KEY, ALGORITHM
+from prometheus_fastapi_instrumentator import Instrumentator
+from arq import create_pool
+from arq.connections import RedisSettings
+from config import settings
 
-from telemetry import init_telemetry_pool, _pool, set_broadcast_callback
-from provisioning import create_tenant, verify_api_key, verify_email_password
+from telemetry import init_telemetry_pool, set_broadcast_callback, init_redis_pool, get_redis
+from webchat import router as webchat_router, set_webchat_pool
+from routes.auth_routes import router as auth_router
+from routes.super_admin_routes import router as super_admin_router
+from routes.client_routes import router as client_admin_router
+from routes.twilio_routes import router as twilio_router
+
+logger = logging.getLogger("alfie-api")
+# ... skipping to the router inclusions ...
+# Actually, let's just do it cleanly at the bottom where routers are included.
+
+# Global ARQ pool for enqueuing background tasks
+arq_pool = None
 
 
 class ConnectionManager:
@@ -26,210 +37,179 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections:
+    async def broadcast_local(self, message: dict):
+        for connection in list(self.active_connections):
             try:
                 await connection.send_json(message)
             except Exception:
                 pass
 
-
 manager = ConnectionManager()
 
-# JWT Settings
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "CHANGE_ME_IN_PRODUCTION")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
+async def publish_to_redis(message: dict):
+    redis_client = await get_redis()
+    if redis_client:
+        await redis_client.publish("telemetry_events", json.dumps(message))
+    else:
+        await manager.broadcast_local(message)
 
-app = FastAPI(title="A.L.F.I.E Admin API", version="1.0")
+async def redis_pubsub_listener():
+    retry_delay = 1
+    while True:
+        pubsub = None
+        try:
+            redis_client = await get_redis()
+            if not redis_client:
+                await asyncio.sleep(5)
+                continue
+                
+            # Health check before subscribing
+            await redis_client.ping()
+                
+            pubsub = redis_client.pubsub()
+            await pubsub.subscribe("telemetry_events")
+            logger.info("Connected to Redis PubSub for telemetry.")
+            
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    data = json.loads(message["data"])
+                    await manager.broadcast_local(data)
+            
+            # If we exit the loop cleanly, reset delay
+            retry_delay = 1
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Redis PubSub listener error: {e}. Reconnecting in {retry_delay}s...")
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, 60)
+        finally:
+            if pubsub:
+                await pubsub.close()
 
-# Instrument Prometheus
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize database pool & schemas on startup
+    global arq_pool
+    logger.info("Initializing A.L.F.I.E platform DB pool...")
+    await init_telemetry_pool()
+    await init_redis_pool()
+    from telemetry import _pool
+    set_webchat_pool(_pool)
+    set_broadcast_callback(publish_to_redis)
+    
+    # Init ARQ pool
+    arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_dsn))
+    
+    # Start Redis PubSub listener in the background
+    task = asyncio.create_task(redis_pubsub_listener())
+    
+    yield
+    task.cancel()
+    if arq_pool:
+        await arq_pool.close()
+
+
+app = FastAPI(
+    title="A.L.F.I.E Enterprise Voice AI Platform API",
+    version="2.0",
+    description="Multi-tenant Voice & Text AI Platform API",
+    lifespan=lifespan
+)
+
+# Instrument Prometheus metrics
 Instrumentator().instrument(app).expose(app)
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    # Skip rate limiting for websocket and metrics
+    if request.url.path.startswith("/metrics") or request.url.path.startswith("/api/super/live-telemetry"):
+        return await call_next(request)
+        
+    redis_client = await get_redis()
+    if redis_client:
+        # Simple IP-based rate limiting (100 requests per minute)
+        client_ip = request.client.host if request.client else "unknown"
+        key = f"rate_limit:{client_ip}"
+        
+        # Check if IP is permanently banned
+        ban_key = f"banned_ip:{client_ip}"
+        if await redis_client.exists(ban_key):
+            raise HTTPException(status_code=403, detail="Your IP has been temporarily banned due to abuse.")
+            
+        current = await redis_client.get(key)
+        if current:
+            req_count = int(current)
+            if req_count > 500:
+                # Auto-ban the IP for 24 hours
+                await redis_client.setex(ban_key, 86400, "banned")
+                logger.warning(f"Auto-banned IP {client_ip} for abuse.")
+                raise HTTPException(status_code=403, detail="Your IP has been temporarily banned due to abuse.")
+            elif req_count > 100:
+                raise HTTPException(status_code=429, detail="Too Many Requests")
+            
+        pipe = redis_client.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, 60)
+        await pipe.execute()
+        
+    response = await call_next(request)
+    return response
+# Enable CORS for cross-origin WebChat widgets and admin UIs
+# SECURITY: Allow specific origins via environment variables, never wildcard with credentials.
+allowed_origins_str = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174")
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-@app.on_event("startup")
-async def startup_event():
-    # Initialize DB pool and schema
-    await init_telemetry_pool()
-    # Hook up telemetry broadcasting to websockets
-    set_broadcast_callback(manager.broadcast)
-
-
-# --- Auth Models & Functions ---
-
-
-class LoginRequest(BaseModel):
-    api_key: Optional[str] = None
-    email: Optional[str] = None
-    password: Optional[str] = None
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    role: str
-    tenant_id: Optional[str] = None
-
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-
-async def get_current_user(token: str):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-
-# --- Endpoints ---
-
-
-@app.post("/api/auth/login", response_model=Token)
-async def login(req: LoginRequest):
-    # Hardcoded super admin check
-    if req.api_key and req.api_key == os.environ.get("SUPER_ADMIN_KEY", "CHANGE_ME_IN_PRODUCTION"):
-        access_token = create_access_token(
-            data={"sub": "super_admin", "role": "super_admin"},
-            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-        )
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "role": "super_admin",
-        }
-
-    # Otherwise, check client tenant email/password
-    if req.email and req.password:
-        tenant = await verify_email_password(req.email, req.password)
-        if tenant:
-            access_token = create_access_token(
-                data={
-                    "sub": str(tenant["tenant_id"]),
-                    "role": "client_admin",
-                    "tenant_id": str(tenant["tenant_id"]),
-                },
-                expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-            )
-            return {
-                "access_token": access_token,
-                "token_type": "bearer",
-                "role": "client_admin",
-                "tenant_id": str(tenant["tenant_id"]),
-            }
-
-    raise HTTPException(status_code=401, detail="Invalid credentials")
-
-
-# --- Super Admin Endpoints ---
-
-
-class ProvisionRequest(BaseModel):
-    name: str
-    niche: str
-    email: str
-    password: str
-    credit_limit_usd: float = 50.00
-
-
-@app.post("/api/super/provision")
-async def provision_new_tenant(req: ProvisionRequest):
-    # In reality, you'd add a Depends() here to enforce super_admin role
-    result = await create_tenant(req.name, req.niche, req.email, req.password, req.credit_limit_usd)
-    return result
-
-
-@app.get("/api/super/telemetry/recent")
-async def get_recent_telemetry(limit: int = 50):
-    if not _pool:
-        raise HTTPException(status_code=500, detail="Database not initialized")
-    async with _pool.acquire() as conn:
-        records = await conn.fetch(
-            "SELECT * FROM alfie_telemetry ORDER BY created_at DESC LIMIT $1", limit
-        )
-        return [dict(r) for r in records]
+# Include Modular Routers
+app.include_router(auth_router)
+app.include_router(super_admin_router)
+app.include_router(client_admin_router)
+app.include_router(webchat_router)
+app.include_router(twilio_router)
 
 
 @app.websocket("/api/super/telemetry/ws")
 async def websocket_telemetry(websocket: WebSocket, token: Optional[str] = None):
+    """Real-time telemetry websocket stream for Super Admin Dashboard."""
     if not token:
         await websocket.close(code=1008)
         return
+        
     try:
-        user = await get_current_user(token)
-        if user.get("role") != "super_admin":
+        # SECURITY: Cryptographically verify the token before accepting the connection
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "super_admin":
             await websocket.close(code=1008)
             return
-    except Exception:
+    except jwt.PyJWTError:
         await websocket.close(code=1008)
         return
-
+    
     await manager.connect(websocket)
     try:
         while True:
-            # Wait for any messages from the client (keep connection alive)
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
 
-@app.get("/api/super/tenants")
-async def list_tenants():
-    if not _pool:
-        raise HTTPException(status_code=500, detail="Database not initialized")
-    async with _pool.acquire() as conn:
-        records = await conn.fetch(
-            "SELECT tenant_id, name, email, niche, status, credit_limit_usd, created_at FROM alfie_tenants"
-        )
-        return [dict(r) for r in records]
-
-
-# --- Client Admin Endpoints ---
-
-
-@app.get("/api/client/metrics")
-async def get_client_metrics(tenant_id: str, current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "super_admin" and current_user.get("tenant_id") != tenant_id:
-        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own metrics.")
-
-    if not _pool:
-        raise HTTPException(status_code=500, detail="Database not initialized")
-    async with _pool.acquire() as conn:
-        # Sum duration and credits
-        row = await conn.fetchrow(
-            """
-            SELECT COUNT(*) as total_calls,
-                   SUM(duration_seconds) as total_duration,
-                   SUM(credits_consumed) as total_credits
-            FROM alfie_usage WHERE tenant_id = $1
-        """,
-            tenant_id,
-        )
-        return (
-            dict(row)
-            if row
-            else {"total_calls": 0, "total_duration": 0, "total_credits": 0}
-        )
+@app.get("/")
+async def root_health_check():
+    return {"status": "online", "platform": "A.L.F.I.E AI", "version": "2.0"}
 
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
