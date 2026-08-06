@@ -6,7 +6,7 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: () => import('../views/Login.vue'),
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: false, title: 'login' }
   },
   {
     path: '/',
@@ -16,22 +16,68 @@ const routes = [
       {
         path: '',
         name: 'Dashboard',
-        component: () => import('../views/Dashboard.vue')
+        component: () => import('../views/Dashboard.vue'),
+        meta: { title: 'overview' }
       },
       {
         path: 'tenants',
         name: 'Tenants',
-        component: () => import('../views/Tenants.vue')
+        component: () => import('../views/Tenants.vue'),
+        meta: { title: 'tenant management' }
+      },
+      {
+        path: 'personas',
+        name: 'Personas',
+        component: () => import('../views/Personas.vue'),
+        meta: { title: 'niches & agent personas' }
+      },
+      {
+        path: 'calls',
+        name: 'CallLogs',
+        component: () => import('../views/CallLogs.vue'),
+        meta: { title: 'call logs · auto-qa' }
+      },
+      {
+        path: 'tools-registry',
+        name: 'ToolRegistry',
+        component: () => import('../views/ToolRegistry.vue'),
+        meta: { title: 'tool & webhook registry' }
+      },
+      {
+        path: 'phone-numbers',
+        name: 'PhoneNumbers',
+        component: () => import('../views/PhoneNumbers.vue'),
+        meta: { title: 'sip & phone number router' }
       },
       {
         path: 'debug',
         name: 'DebugLogs',
-        component: () => import('../views/DebugLogs.vue')
+        component: () => import('../views/DebugLogs.vue'),
+        meta: { title: 'debug logs · live' }
       },
       {
-        path: 'metrics',
-        name: 'GlobalMetrics',
-        component: () => import('../views/GlobalMetrics.vue')
+        path: 'config',
+        name: 'AgentConfig',
+        component: () => import('../views/AgentConfig.vue'),
+        meta: { title: 'agent config editor' }
+      },
+      {
+        path: 'revenue',
+        name: 'Revenue',
+        component: () => import('../views/Revenue.vue'),
+        meta: { title: 'billing · revenue' }
+      },
+      {
+        path: 'credits',
+        name: 'Credits',
+        component: () => import('../views/Credits.vue'),
+        meta: { title: 'billing · credits' }
+      },
+      {
+        path: 'vouchers',
+        name: 'Vouchers',
+        component: () => import('../views/Vouchers.vue'),
+        meta: { title: 'billing · vouchers' }
       }
     ]
   }
@@ -42,14 +88,12 @@ const router = createRouter({
   routes
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
   const authStore = useAuthStore();
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login');
+    return '/login';
   } else if (to.path === '/login' && authStore.isAuthenticated) {
-    next('/');
-  } else {
-    next();
+    return '/';
   }
 });
 

@@ -10,9 +10,9 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: (state) => !!state.token,
   },
   actions: {
-    async login(apiKey) {
+    async login(email, password) {
       try {
-        const response = await api.post('/api/auth/login', { api_key: apiKey });
+        const response = await api.post('/api/auth/login', { email, password });
         this.token = response.data.access_token;
         this.role = response.data.role;
         localStorage.setItem('alfie_super_token', this.token);
