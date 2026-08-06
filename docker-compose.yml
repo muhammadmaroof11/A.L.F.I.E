@@ -1,23 +1,17 @@
-version: '3.8'
-
 services:
   alfie-agent:
     build: .
     restart: unless-stopped
     depends_on:
       - alfie-mongodb
-    secrets:
-      - livekit_api_key
-      - livekit_api_secret
-      - deepgram_api_key
-      - openrouter_api_key
-      - fish_audio_api_key
+      - postgres
+    env_file:
+      - .env
     environment:
       - MONGODB_URI=mongodb://alfie-mongodb:27017
       - MONGODB_DB_NAME=alfie_ai
 
   alfie-mongodb:
-    # Use explicit patched version to prevent CVE-2025-14847 MongoBleed
     image: mongo:8.0
     restart: unless-stopped
     ports:
@@ -25,17 +19,36 @@ services:
     volumes:
       - mongodb_data:/data/db
 
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=alfie_secure_postgres_pass
+      - POSTGRES_DB=twenty_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  alfie-worker:
+    build: .
+    command: arq worker.WorkerSettings
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - .env
+
 volumes:
   mongodb_data:
-
-secrets:
-  livekit_api_key:
-    file: ./secrets/livekit_api_key
-  livekit_api_secret:
-    file: ./secrets/livekit_api_secret
-  deepgram_api_key:
-    file: ./secrets/deepgram_api_key
-  openrouter_api_key:
-    file: ./secrets/openrouter_api_key
-  fish_audio_api_key:
-    file: ./secrets/fish_audio_api_key
+  postgres_data:
+  redis_data:

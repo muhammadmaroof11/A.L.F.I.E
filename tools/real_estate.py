@@ -4,12 +4,12 @@ from typing import Annotated, Optional
 from crm_client import crm
 
 
-class RealEstateTools(llm.FunctionContext):
+class RealEstateTools(llm.Toolset):
     def __init__(self, tenant_id: str):
-        super().__init__()
+        super().__init__(id="real_estate")
         self.tenant_id = tenant_id
 
-    @llm.ai_callable(
+    @llm.function_tool(
         description="Search for available real estate properties matching criteria."
     )
     async def search_properties(
@@ -35,7 +35,7 @@ class RealEstateTools(llm.FunctionContext):
             logging.error(f"Error querying properties: {e}")
             return "I'm having trouble accessing the property database right now."
 
-    @llm.ai_callable(description="Book a viewing for a specific property.")
+    @llm.function_tool(description="Book a viewing for a specific property.")
     async def book_viewing(
         self,
         property_title: Annotated[str, "The title or ID of the property"],

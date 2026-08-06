@@ -4,12 +4,12 @@ from typing import Annotated, Optional
 from crm_client import crm
 
 
-class CarRentalTools(llm.FunctionContext):
+class CarRentalTools(llm.Toolset):
     def __init__(self, tenant_id: str):
-        super().__init__()
+        super().__init__(id="car_rental")
         self.tenant_id = tenant_id
 
-    @llm.ai_callable(
+    @llm.function_tool(
         description="Search for available rental vehicles matching criteria."
     )
     async def search_vehicles(
@@ -35,7 +35,7 @@ class CarRentalTools(llm.FunctionContext):
             logging.error(f"Error querying vehicles: {e}")
             return "I'm having trouble accessing the fleet database right now."
 
-    @llm.ai_callable(description="Book a vehicle for rental.")
+    @llm.function_tool(description="Book a vehicle for rental.")
     async def book_vehicle(
         self,
         vehicle_make_model: Annotated[str, "The make and model of the vehicle"],

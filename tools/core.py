@@ -6,13 +6,13 @@ from config import settings
 from crm_client import crm
 
 
-class CoreTools(llm.FunctionContext):
+class CoreTools(llm.Toolset):
     def __init__(self, tenant_id: str, room_name: str = None, **kwargs):
-        super().__init__()
+        super().__init__(id="core_tools")
         self.tenant_id = tenant_id
         self.room_name = room_name
 
-    @llm.ai_callable(
+    @llm.function_tool(
         description="Transfer the call to a human agent when requested or when unable to assist."
     )
     async def transfer_to_human(
@@ -52,7 +52,7 @@ class CoreTools(llm.FunctionContext):
             logging.error(f"[{self.tenant_id}] SIP transfer failed: {e}")
             return "I'm having a technical issue with the transfer. Let me take your number and arrange a callback."
 
-    @llm.ai_callable(description="Capture a new lead's basic contact information.")
+    @llm.function_tool(description="Capture a new lead's basic contact information.")
     async def capture_lead(
         self,
         name: Annotated[str, "The caller's full name"],

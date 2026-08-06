@@ -32,6 +32,9 @@ class Settings(BaseSettings):
         default="postgresql://postgres:alfie_secure_postgres_pass@postgres:5432/twenty_db"
     )
 
+    # Redis (Caching, Rate Limiting, Pub/Sub)
+    redis_dsn: str = Field(default="redis://redis:6379/0")
+
     @model_validator(mode="after")
     def validate_required_secrets(self) -> "Settings":
         required = {

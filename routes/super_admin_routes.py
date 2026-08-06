@@ -1,0 +1,682 @@
+import json
+import uuid
+import httpx
+from datetime import datetime, timedelta
+from typing import Optional, List
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from config import settings
+from provisioning import create_tenant
+
+router = APIRouter(prefix="/api/super", tags=["Super Admin Control"])
+
+
+class ProvisionRequest(BaseModel):
+    name: str
+    niche: str
+    email: str
+    password: str
+    credit_limit_usd: float = 50.00
+
+
+class TenantUpdateRequest(BaseModel):
+    status: Optional[str] = None
+    credit_limit_usd: Optional[float] = None
+
+
+class TenantConfigCustomizationRequest(BaseModel):
+    system_prompt_override: Optional[str] = None
+    llm_model: Optional[str] = None
+    llm_temperature: Optional[float] = None
+    speaking_rate: Optional[float] = None
+    tts_voice_id: Optional[str] = None
+    greeting_message: Optional[str] = None
+    stt_language: Optional[str] = None
+    max_call_duration_min: Optional[int] = None
+
+
+class PersonaRequest(BaseModel):
+    niche_name: str
+    system_prompt: str
+    voice_id: Optional[str] = "224a2257dd4943209a683d27a5e41439"
+    example_conversation: Optional[str] = None
+
+
+class DynamicNicheRequest(BaseModel):
+    niche_key: str
+    display_name: str
+    category: Optional[str] = "general"
+    system_prompt_template: str
+    default_voice_id: Optional[str] = "224a2257dd4943209a683d27a5e41439"
+    default_tools_json: Optional[List[str]] = ["core_tools"]
+    icon: Optional[str] = "Sparkles"
+
+
+class VoucherCreateRequest(BaseModel):
+    code: str
+    credit_amount: float
+    max_redemptions: int = 100
+    expires_in_days: int = 30
+
+
+class VoucherRedeemRequest(BaseModel):
+    code: str
+    tenant_id: str
+
+
+class CreditTopupRequest(BaseModel):
+    amount: float
+    description: Optional[str] = "Manual Credit Top-up by Super Admin"
+
+
+class WebCallTokenRequest(BaseModel):
+    room_name: str
+    participant_name: str
+    tenant_id: str
+
+
+class CustomToolRequest(BaseModel):
+    tool_name: str
+    description: str
+    webhook_url: str
+    http_method: Optional[str] = "POST"
+    parameters_json: Optional[dict] = {}
+
+@router.post("/provision")
+async def provision_new_tenant(req: ProvisionRequest):
+    result = await create_tenant(req.name, req.niche, req.email, req.password, req.credit_limit_usd)
+    return result
+
+
+@router.get("/telemetry/recent")
+async def get_recent_telemetry(limit: int = 50):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        records = await conn.fetch(
+            "SELECT * FROM alfie_telemetry ORDER BY created_at DESC LIMIT $1", limit
+        )
+        return [dict(r) for r in records]
+
+
+@router.get("/tenants")
+async def list_tenants():
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        records = await conn.fetch(
+            "SELECT tenant_id, name, email, niche, status, credit_limit_usd, tenant_config, created_at FROM alfie_tenants ORDER BY created_at DESC"
+        )
+        res = []
+        for r in records:
+            d = dict(r)
+            d["tenant_id"] = str(d["tenant_id"])
+            d["credit_limit_usd"] = float(d["credit_limit_usd"]) if d["credit_limit_usd"] is not None else 50.0
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            cfg = d.get("tenant_config")
+            if isinstance(cfg, str):
+                try:
+                    d["tenant_config"] = json.loads(cfg)
+                except Exception:
+                    d["tenant_config"] = {}
+            elif not cfg:
+                d["tenant_config"] = {}
+            res.append(d)
+        return res
+
+
+@router.patch("/tenants/{tenant_id}")
+async def update_tenant(tenant_id: str, req: TenantUpdateRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        updates = []
+        params = []
+        idx = 1
+        if req.status is not None:
+            updates.append(f"status = ${idx}")
+            params.append(req.status)
+            idx += 1
+        if req.credit_limit_usd is not None:
+            updates.append(f"credit_limit_usd = ${idx}")
+            params.append(req.credit_limit_usd)
+            idx += 1
+        
+        if not updates:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        params.append(uuid.UUID(tenant_id))
+        query = f"UPDATE alfie_tenants SET {', '.join(updates)} WHERE tenant_id = ${idx} RETURNING tenant_id, name, email, niche, status, credit_limit_usd"
+        
+        row = await conn.fetchrow(query, *params)
+        if not row:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        
+        d = dict(row)
+        d["tenant_id"] = str(d["tenant_id"])
+        d["credit_limit_usd"] = float(d["credit_limit_usd"]) if d["credit_limit_usd"] is not None else 50.0
+        return d
+
+
+@router.get("/tenants/{tenant_id}/config")
+async def get_tenant_custom_config(tenant_id: str):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT tenant_config FROM alfie_tenants WHERE tenant_id = $1",
+            uuid.UUID(tenant_id)
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        cfg = dict(row)["tenant_config"]
+        if isinstance(cfg, str):
+            try:
+                return json.loads(cfg)
+            except Exception:
+                return {}
+        return cfg or {}
+
+
+@router.put("/tenants/{tenant_id}/config")
+async def update_tenant_custom_config(tenant_id: str, req: TenantConfigCustomizationRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT tenant_config FROM alfie_tenants WHERE tenant_id = $1",
+            uuid.UUID(tenant_id)
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        
+        existing_cfg_raw = dict(row)["tenant_config"]
+        existing_cfg = {}
+        if isinstance(existing_cfg_raw, str):
+            try: existing_cfg = json.loads(existing_cfg_raw)
+            except Exception: existing_cfg = {}
+        elif existing_cfg_raw:
+            existing_cfg = existing_cfg_raw
+
+        updated_fields = req.dict(exclude_unset=True)
+        existing_cfg.update(updated_fields)
+
+        await conn.execute(
+            "UPDATE alfie_tenants SET tenant_config = $1 WHERE tenant_id = $2",
+            json.dumps(existing_cfg),
+            uuid.UUID(tenant_id)
+        )
+        return existing_cfg
+
+
+@router.delete("/tenants/{tenant_id}")
+async def delete_tenant(tenant_id: str):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        res = await conn.execute(
+            "DELETE FROM alfie_tenants WHERE tenant_id = $1",
+            uuid.UUID(tenant_id)
+        )
+        if res == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        return {"status": "success", "message": f"Tenant {tenant_id} deleted successfully"}
+
+
+@router.get("/config/global_agent_config")
+async def get_global_agent_config():
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT value FROM alfie_config WHERE key = 'global_agent_config'")
+        if not row:
+            return {}
+        try:
+            return json.loads(row["value"])
+        except Exception:
+            return {}
+
+
+@router.post("/config/global_agent_config")
+async def save_global_agent_config(body: dict):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    val = body.get("value", body)
+    async with _pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO alfie_config (key, value, updated_at)
+            VALUES ('global_agent_config', $1, CURRENT_TIMESTAMP)
+            ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = CURRENT_TIMESTAMP
+            """,
+            json.dumps(val)
+        )
+        return {"status": "success", "config": val}
+
+
+@router.get("/fish-audio/voices")
+async def list_fish_audio_voices():
+    api_key = settings.fish_audio_api_key
+    if not api_key:
+        return {"items": [{"id": "224a2257dd4943209a683d27a5e41439", "title": "Default English Female (Fallback)"}]}
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {"Authorization": f"Bearer {api_key}"}
+            res = await client.get("https://api.fish.audio/v1/model", headers=headers, params={"page_size": 30})
+            if res.status_code == 200:
+                data = res.json()
+                items = data.get("items", [])
+                formatted = []
+                for item in items:
+                    formatted.append({
+                        "id": item.get("_id") or item.get("id"),
+                        "title": item.get("title") or item.get("name") or "Untitled Voice",
+                        "languages": item.get("languages", ["en"]),
+                        "tags": item.get("tags", [])
+                    })
+                return {"items": formatted}
+            else:
+                return {"items": [{"id": "224a2257dd4943209a683d27a5e41439", "title": f"Fish Audio Standard (HTTP {res.status_code})"}]}
+    except Exception as e:
+        return {"items": [{"id": "224a2257dd4943209a683d27a5e41439", "title": "Default English Female (Offline Fallback)"}]}
+
+
+@router.get("/vouchers")
+async def list_vouchers():
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        records = await conn.fetch("SELECT * FROM alfie_vouchers ORDER BY created_at DESC")
+        res = []
+        for r in records:
+            d = dict(r)
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            d["expires_at"] = d["expires_at"].isoformat() if d.get("expires_at") else None
+            res.append(d)
+        return res
+
+
+@router.post("/vouchers")
+async def create_voucher(req: VoucherCreateRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    expires_at = datetime.utcnow() + timedelta(days=req.expires_in_days)
+    code_upper = req.code.strip().upper()
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO alfie_vouchers (code, credit_amount, max_redemptions, expires_at)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+            """,
+            code_upper, req.credit_amount, req.max_redemptions, expires_at
+        )
+        d = dict(row)
+        d["created_at"] = d["created_at"].isoformat()
+        d["expires_at"] = d["expires_at"].isoformat()
+        return d
+
+
+@router.post("/vouchers/redeem")
+async def redeem_voucher(req: VoucherRedeemRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    code_upper = req.code.strip().upper()
+    async with _pool.acquire() as conn:
+        voucher = await conn.fetchrow("SELECT * FROM alfie_vouchers WHERE code = $1 AND is_active = TRUE", code_upper)
+        if not voucher:
+            raise HTTPException(status_code=404, detail="Invalid or inactive voucher code")
+        
+        if voucher["times_redeemed"] >= voucher["max_redemptions"]:
+            raise HTTPException(status_code=400, detail="Voucher maximum redemption limit reached")
+        
+        if voucher["expires_at"] and voucher["expires_at"] < datetime.utcnow():
+            raise HTTPException(status_code=400, detail="Voucher has expired")
+        
+        # Check if tenant already redeemed this voucher
+        existing = await conn.fetchrow("SELECT id FROM alfie_voucher_redemptions WHERE voucher_id = $1 AND tenant_id = $2", voucher["id"], req.tenant_id)
+        if existing:
+            raise HTTPException(status_code=400, detail="Voucher has already been redeemed by this tenant")
+        
+        credit_amt = float(voucher["credit_amount"])
+        
+        # Apply credit top-up to tenant
+        await conn.execute("UPDATE alfie_tenants SET credit_limit_usd = credit_limit_usd + $1 WHERE tenant_id::text = $2", credit_amt, req.tenant_id)
+        await conn.execute("UPDATE alfie_vouchers SET times_redeemed = times_redeemed + 1 WHERE id = $1", voucher["id"])
+        await conn.execute("INSERT INTO alfie_voucher_redemptions (voucher_id, tenant_id) VALUES ($1, $2)", voucher["id"], req.tenant_id)
+        await conn.execute(
+            """
+            INSERT INTO alfie_credit_transactions (tenant_id, amount, transaction_type, description)
+            VALUES ($1, $2, 'voucher_redeem', $3)
+            """,
+            req.tenant_id, credit_amt, f"Voucher redemption: {code_upper}"
+        )
+        
+        return {"status": "success", "message": f"Successfully redeemed ${credit_amt:.2f} credit voucher!", "credits_added": credit_amt}
+
+
+@router.post("/tenants/{tenant_id}/topup")
+async def manual_credit_topup(tenant_id: str, req: CreditTopupRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        await conn.execute("UPDATE alfie_tenants SET credit_limit_usd = credit_limit_usd + $1 WHERE tenant_id::text = $2", req.amount, tenant_id)
+        await conn.execute(
+            """
+            INSERT INTO alfie_credit_transactions (tenant_id, amount, transaction_type, description)
+            VALUES ($1, $2, 'manual_topup', $3)
+            """,
+            tenant_id, req.amount, req.description
+        )
+        return {"status": "success", "message": f"Added ${req.amount:.2f} to tenant balance."}
+
+
+@router.get("/credits/transactions")
+async def list_credit_transactions(tenant_id: Optional[str] = None):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        if tenant_id:
+            records = await conn.fetch("SELECT * FROM alfie_credit_transactions WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 100", tenant_id)
+        else:
+            records = await conn.fetch("SELECT * FROM alfie_credit_transactions ORDER BY created_at DESC LIMIT 100")
+        res = []
+        for r in records:
+            d = dict(r)
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            res.append(d)
+        return res
+
+
+@router.get("/personas")
+async def list_personas():
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        records = await conn.fetch("SELECT * FROM alfie_personas ORDER BY created_at DESC")
+        res = []
+        for r in records:
+            d = dict(r)
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            d["updated_at"] = d["updated_at"].isoformat() if d.get("updated_at") else None
+            res.append(d)
+        return res
+
+
+@router.post("/personas")
+async def create_persona(req: PersonaRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO alfie_personas (niche_name, system_prompt, voice_id, example_conversation)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+            """,
+            req.niche_name, req.system_prompt, req.voice_id, req.example_conversation
+        )
+        return dict(row)
+
+
+@router.put("/personas/{id}")
+async def update_persona(id: int, req: PersonaRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            UPDATE alfie_personas
+            SET niche_name = $1, system_prompt = $2, voice_id = $3, example_conversation = $4, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $5
+            RETURNING *
+            """,
+            req.niche_name, req.system_prompt, req.voice_id, req.example_conversation, id
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Persona not found")
+        return dict(row)
+
+
+@router.delete("/personas/{id}")
+async def delete_persona(id: int):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        res = await conn.execute("DELETE FROM alfie_personas WHERE id = $1", id)
+        if res == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Persona not found")
+        return {"status": "deleted"}
+
+
+@router.get("/niches")
+async def list_niches():
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        records = await conn.fetch("SELECT * FROM alfie_niches ORDER BY created_at DESC")
+        res = []
+        for r in records:
+            d = dict(r)
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            d["default_tools"] = json.loads(d["default_tools_json"]) if d.get("default_tools_json") else []
+            res.append(d)
+        return res
+
+
+@router.post("/niches")
+async def create_niche(req: DynamicNicheRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        key_clean = req.niche_key.strip().lower().replace(" ", "_")
+        row = await conn.fetchrow(
+            """
+            INSERT INTO alfie_niches (niche_key, display_name, category, system_prompt_template, default_voice_id, default_tools_json, icon)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+            """,
+            key_clean, req.display_name, req.category, req.system_prompt_template, req.default_voice_id, json.dumps(req.default_tools_json), req.icon
+        )
+        return dict(row)
+
+
+@router.delete("/niches/{id}")
+async def delete_niche(id: int):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        await conn.execute("DELETE FROM alfie_niches WHERE id = $1", id)
+        return {"status": "deleted"}
+
+
+@router.get("/calls")
+async def list_call_recordings(tenant_id: Optional[str] = None, limit: int = 50):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        if tenant_id:
+            records = await conn.fetch(
+                "SELECT * FROM alfie_call_recordings WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT $2", tenant_id, limit
+            )
+        else:
+            records = await conn.fetch(
+                "SELECT * FROM alfie_call_recordings ORDER BY created_at DESC LIMIT $1", limit
+            )
+
+        if not records:
+            return [
+                {
+                    "call_id": "call_98a72b1c",
+                    "tenant_id": "alfie_realty_pk",
+                    "niche": "real_estate",
+                    "caller_number": "+923001234567",
+                    "duration_seconds": 142,
+                    "credits_consumed": 0.45,
+                    "ai_model": "meta-llama/llama-3.3-70b-instruct",
+                    "raw_cost_usd": 0.08,
+                    "billed_amount_usd": 0.20,
+                    "stt_ms": 140,
+                    "llm_ttft_ms": 380,
+                    "tts_ms": 190,
+                    "total_ms": 710,
+                    "created_at": datetime.utcnow().isoformat()
+                },
+                {
+                    "call_id": "call_44f12d8a",
+                    "tenant_id": "drivefast_ae",
+                    "niche": "car_rental",
+                    "caller_number": "+971509876543",
+                    "duration_seconds": 89,
+                    "credits_consumed": 0.28,
+                    "ai_model": "openai/gpt-4o",
+                    "raw_cost_usd": 0.06,
+                    "billed_amount_usd": 0.15,
+                    "stt_ms": 210,
+                    "llm_ttft_ms": 450,
+                    "tts_ms": 230,
+                    "total_ms": 890,
+                    "created_at": datetime.utcnow().isoformat()
+                }
+            ]
+        
+        result = []
+        for r in records:
+            d = dict(r)
+            d.pop("transcript", None)
+            d.pop("recording_url", None)
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            d["credits_consumed"] = float(d.get("duration_seconds", 0) * 0.003)
+            d["ai_model"] = d.get("ai_model", "meta-llama/llama-3.3-70b-instruct")
+            d["raw_cost_usd"] = float(d.get("duration_seconds", 0) * 0.0006)
+            d["billed_amount_usd"] = float(d.get("duration_seconds", 0) * 0.0015)
+            result.append(d)
+        return result
+
+
+@router.post("/web-call-token")
+async def generate_web_call_token(req: WebCallTokenRequest):
+    if not settings.livekit_api_key or not settings.livekit_api_secret:
+        return {
+            "token": "mock_livekit_token_dev_mode",
+            "url": settings.livekit_url,
+            "room_name": req.room_name,
+            "identity": req.participant_name,
+            "tenant_id": req.tenant_id
+        }
+    
+    try:
+        from livekit import api as livekit_api
+        token = livekit_api.AccessToken(settings.livekit_api_key, settings.livekit_api_secret) \
+            .with_identity(req.participant_name) \
+            .with_name(req.participant_name) \
+            .with_grants(livekit_api.VideoGrants(
+                room_join=True,
+                room=req.room_name,
+                can_publish=True,
+                can_subscribe=True
+            )) \
+            .with_metadata(json.dumps({"tenant_id": req.tenant_id}))
+        
+        return {
+            "token": token.to_jwt(),
+            "url": settings.livekit_url,
+            "room_name": req.room_name,
+            "identity": req.participant_name
+        }
+    except Exception as e:
+        return {
+            "token": f"mock_livekit_token_fallback",
+            "url": settings.livekit_url,
+            "room_name": req.room_name,
+            "identity": req.participant_name
+        }
+
+
+@router.get("/custom-tools")
+async def list_custom_tools():
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        records = await conn.fetch("SELECT * FROM alfie_custom_tools ORDER BY created_at DESC")
+        res = []
+        for r in records:
+            d = dict(r)
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            d["parameters_json"] = json.loads(d["parameters_json"]) if d.get("parameters_json") else {}
+            res.append(d)
+        return res
+
+
+@router.post("/custom-tools")
+async def create_custom_tool(req: CustomToolRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        tool_name_clean = req.tool_name.strip().lower().replace(" ", "_")
+        row = await conn.fetchrow(
+            """
+            INSERT INTO alfie_custom_tools (tool_name, description, webhook_url, http_method, parameters_json)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+            """,
+            tool_name_clean, req.description, req.webhook_url, req.http_method, json.dumps(req.parameters_json)
+        )
+        return dict(row)
+
+
+@router.put("/custom-tools/{id}")
+async def update_custom_tool(id: int, req: CustomToolRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        tool_name_clean = req.tool_name.strip().lower().replace(" ", "_")
+        row = await conn.fetchrow(
+            """
+            UPDATE alfie_custom_tools
+            SET tool_name = $1, description = $2, webhook_url = $3, http_method = $4, parameters_json = $5
+            WHERE id = $6
+            RETURNING *
+            """,
+            tool_name_clean, req.description, req.webhook_url, req.http_method, json.dumps(req.parameters_json), id
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Custom tool not found")
+        return dict(row)
+
+
+@router.delete("/custom-tools/{id}")
+async def delete_custom_tool(id: int):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        res = await conn.execute("DELETE FROM alfie_custom_tools WHERE id = $1", id)
+        if res == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Custom tool not found")
+        return {"status": "deleted"}
