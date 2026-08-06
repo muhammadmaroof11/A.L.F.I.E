@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{vue,js,ts,jsx,tsx}",
@@ -7,31 +8,49 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#070a0f',
-        surface: 'rgba(255, 255, 255, 0.03)',
-        surfaceHover: 'rgba(255, 255, 255, 0.06)',
-        border: 'rgba(255, 255, 255, 0.08)',
-        borderHover: 'rgba(255, 255, 255, 0.15)',
-        textPrimary: '#f0f4f8',
-        textSecondary: 'rgba(240, 244, 248, 0.65)',
-        textMuted: 'rgba(240, 244, 248, 0.4)',
-        accent: '#14b8a6', // Teal
-        accentGlow: 'rgba(20, 184, 166, 0.3)',
-        accentSecondary: '#10b981', // Emerald
+        border: 'var(--border)',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        primary: {
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
+        },
+        secondary: {
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
+        },
+        destructive: {
+          DEFAULT: 'var(--destructive)',
+          foreground: 'var(--destructive-foreground)',
+        },
+        muted: {
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          foreground: 'var(--accent-foreground)',
+        },
+        popover: {
+          DEFAULT: 'var(--popover)',
+          foreground: 'var(--popover-foreground)',
+        },
+        card: {
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
+        },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
-        display: ['Outfit', 'sans-serif'],
         mono: ['Fira Code', 'monospace'],
       },
-      boxShadow: {
-        'glass': '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-        'glass-elevated': '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-        'glow': '0 0 30px rgba(20, 184, 166, 0.4), 0 4px 20px rgba(0, 0, 0, 0.3)',
-      },
-      backgroundImage: {
-        'gradient-accent': 'linear-gradient(135deg, #14b8a6 0%, #10b981 100%)',
-      }
     },
   },
   plugins: [],
