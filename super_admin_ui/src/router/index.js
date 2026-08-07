@@ -26,6 +26,12 @@ const routes = [
         meta: { title: 'tenant management' }
       },
       {
+        path: 'tenants/:id',
+        name: 'TenantDetail',
+        component: () => import('../views/TenantDetail.vue'),
+        meta: { title: 'tenant configuration' }
+      },
+      {
         path: 'personas',
         name: 'Personas',
         component: () => import('../views/Personas.vue'),

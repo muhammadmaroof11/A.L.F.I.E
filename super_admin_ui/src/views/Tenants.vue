@@ -50,6 +50,7 @@
             <tr class="border-b border-white/5 transition-colors">
               <th class="h-12 px-6 text-left align-middle font-semibold text-muted-foreground w-[30%]">Tenant / Email</th>
               <th class="h-12 px-6 text-left align-middle font-semibold text-muted-foreground">Status</th>
+              <th class="h-12 px-6 text-left align-middle font-semibold text-muted-foreground">Plan</th>
               <th class="h-12 px-6 text-left align-middle font-semibold text-muted-foreground">Niche Persona</th>
               <th class="h-12 px-6 text-left align-middle font-semibold text-muted-foreground">Credit Limit</th>
               <th class="h-12 px-6 text-left align-middle font-semibold text-muted-foreground">Created Date</th>
@@ -58,7 +59,7 @@
           </thead>
           <tbody class="[&_tr:last-child]:border-0">
             <tr v-if="filteredTenants.length === 0">
-              <td colspan="6" class="p-8 text-center text-muted-foreground font-mono">No tenants found matching your criteria.</td>
+              <td colspan="7" class="p-8 text-center text-muted-foreground font-mono">No tenants found matching your criteria.</td>
             </tr>
             <tr v-for="tenant in filteredTenants" :key="tenant.tenant_id" :class="['border-b border-white/5 transition-all duration-300 hover:bg-primary/5 hover:shadow-[inset_0_0_20px_rgba(var(--primary),0.05)] group', tenant.status === 'suspended' ? 'opacity-50 grayscale' : '']">
               <td class="p-4 align-middle">
@@ -78,6 +79,14 @@
                 </div>
               </td>
               <td class="p-4 align-middle">
+                <div :class="['inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent', 
+                  (!tenant.subscription_tier || tenant.subscription_tier === 'payg') ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80' : 
+                  tenant.subscription_tier === 'plus' ? 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20' : 
+                  'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20']">
+                  {{ (!tenant.subscription_tier || tenant.subscription_tier === 'payg') ? 'Pay-As-You-Go' : tenant.subscription_tier === 'plus' ? 'Plus Plan' : 'Pro Plan' }}
+                </div>
+              </td>
+              <td class="p-4 align-middle">
                 <div class="inline-flex items-center rounded-full border border-transparent bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80">
                   {{ tenant.niche }}
                 </div>
@@ -93,7 +102,7 @@
               </td>
               <td class="p-4 align-middle text-right">
                 <div class="flex items-center justify-end gap-2">
-                  <button @click="openCustomizationModal(tenant)" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3">
+                  <button @click="router.push('/tenants/' + tenant.tenant_id)" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                     Customize
                   </button>
@@ -111,97 +120,7 @@
       </div>
     </div>
 
-    <!-- Per-Tenant Customization Modal -->
-    <div v-if="selectedCustomTenant" class="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center">
-      <div class="fixed left-[50%] top-[50%] z-50 grid w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 glass-panel p-8 shadow-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto border border-white/10">
-        <div class="flex flex-col space-y-1.5 sm:text-left">
-          <h2 class="text-lg font-semibold leading-none tracking-tight">Customize Tenant Agent: {{ selectedCustomTenant.name }}</h2>
-          <p class="text-sm text-muted-foreground">Override system prompt, conversational LLM, voice ID, and speaking rates for this client.</p>
-        </div>
-        
-        <form @submit.prevent="saveCustomConfig" class="space-y-4 py-4">
-          <div class="space-y-2">
-            <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Client Custom System Prompt / Behavior Override</label>
-            <textarea class="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs" v-model="customForm.system_prompt_override" rows="5" placeholder="Add specific client rules (e.g. Always emphasize 5% discount for upfront payments...)"></textarea>
-          </div>
 
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <label class="text-sm font-medium leading-none">Conversational LLM Model</label>
-              <select class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" v-model="customForm.llm_model">
-                <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B Instruct (Human-Like)</option>
-                <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B Instruct (Ultra Fast)</option>
-                <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (High Empathy)</option>
-                <option value="openai/gpt-4o">GPT-4o Omnimodal</option>
-                <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B (Multilingual)</option>
-              </select>
-            </div>
-
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium leading-none">Temperature (Warmth)</label>
-                <span class="font-mono text-xs text-muted-foreground">{{ customForm.llm_temperature }}</span>
-              </div>
-              <input type="range" class="w-full accent-primary" min="0" max="1" step="0.05" v-model.number="customForm.llm_temperature">
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-sm font-medium leading-none">Discover & Select Fish Audio Voice</label>
-            <select class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" @change="e => { if(e.target.value) customForm.tts_voice_id = e.target.value; }">
-              <option value="">-- Select from Fish Audio Discover --</option>
-              <option v-for="voice in fishAudioVoices" :key="voice.id" :value="voice.id">
-                {{ voice.title }} (by {{ voice.author }})
-              </option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <label class="text-sm font-medium leading-none">Fish Audio Voice ID</label>
-              <input type="text" class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs text-amber-500" v-model="customForm.tts_voice_id" placeholder="Voice ID string..." />
-            </div>
-
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium leading-none">Speaking Speed Rate</label>
-                <span class="font-mono text-xs text-muted-foreground">{{ customForm.speaking_rate }}x</span>
-              </div>
-              <input type="range" class="w-full accent-primary" min="0.5" max="2.0" step="0.1" v-model.number="customForm.speaking_rate">
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-sm font-medium leading-none">Greeting Message Override</label>
-            <input type="text" class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" v-model="customForm.greeting_message" placeholder="e.g., Hello! Thank you for calling Alfie Realty. How can I help you today?" />
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <label class="text-sm font-medium leading-none">STT Streaming Language</label>
-              <select class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" v-model="customForm.stt_language">
-                <option value="en-US">English (US)</option>
-                <option value="en-UK">English (UK)</option>
-                <option value="ur-PK">Urdu (PK)</option>
-                <option value="ar">Arabic</option>
-              </select>
-            </div>
-
-            <div class="space-y-2">
-              <label class="text-sm font-medium leading-none">Max Call Duration (Minutes)</label>
-              <input type="number" class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" v-model.number="customForm.max_call_duration_min" />
-            </div>
-          </div>
-
-          <div class="flex items-center justify-end gap-2 pt-4 border-t border-border mt-6">
-            <button type="button" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2" @click="selectedCustomTenant = null">Cancel</button>
-            <button type="submit" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2" :disabled="savingCustom">
-              {{ savingCustom ? 'Saving Customization...' : 'Save Changes' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
 
     <!-- Provisioning Form Modal -->
     <div v-if="showProvisionModal" class="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center">
@@ -287,13 +206,38 @@
         </div>
       </div>
     </div>
+
+    <!-- Custom Confirm Modal -->
+    <div v-if="confirmDialog.show" class="fixed inset-0 z-[110] bg-background/80 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-200">
+      <div class="fixed left-[50%] top-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 glass-panel p-6 shadow-2xl sm:rounded-2xl border border-white/10 animate-in zoom-in-95 duration-200">
+        <div class="flex flex-col space-y-1.5 sm:text-left">
+          <h2 class="text-lg font-semibold leading-none tracking-tight">{{ confirmDialog.title }}</h2>
+          <p class="text-sm text-muted-foreground mt-2">{{ confirmDialog.message }}</p>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-4">
+          <button @click="confirmDialog.cancel" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors h-9 px-4 py-2 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground">Cancel</button>
+          <button @click="confirmDialog.confirm" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors h-9 px-4 py-2 bg-primary text-primary-foreground shadow hover:bg-primary/90">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="fixed bottom-6 right-6 z-[120] flex flex-col gap-3">
+      <div v-for="toast in toasts" :key="toast.id" :class="['px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium transition-all duration-300 animate-in slide-in-from-right-8 fade-in flex items-center gap-3 backdrop-blur-xl', toast.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500']">
+        <svg v-if="toast.type === 'error'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        {{ toast.message }}
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import api from '../services/api';
 
+const router = useRouter();
 const tenants = ref([]);
 const personas = ref([]);
 const fishAudioVoices = ref([]);
@@ -303,20 +247,34 @@ const searchQuery = ref('');
 const showProvisionModal = ref(false);
 const provisioning = ref(false);
 const successResult = ref(null);
+const confirmDialog = ref({ show: false, title: '', message: '', confirm: null, cancel: null });
+const toasts = ref([]);
 
-const selectedCustomTenant = ref(null);
-const savingCustom = ref(false);
+const showToast = (message, type = 'success') => {
+  const id = Date.now();
+  toasts.value.push({ id, message, type });
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id);
+  }, 4000);
+};
 
-const customForm = ref({
-  system_prompt_override: '',
-  llm_model: 'meta-llama/llama-3.3-70b-instruct',
-  llm_temperature: 0.3,
-  speaking_rate: 1.0,
-  tts_voice_id: '224a2257dd4943209a683d27a5e41439',
-  greeting_message: '',
-  stt_language: 'en-US',
-  max_call_duration_min: 15
-});
+const customConfirm = (title, message) => {
+  return new Promise((resolve) => {
+    confirmDialog.value = {
+      show: true,
+      title,
+      message,
+      confirm: () => {
+        confirmDialog.value.show = false;
+        resolve(true);
+      },
+      cancel: () => {
+        confirmDialog.value.show = false;
+        resolve(false);
+      }
+    };
+  });
+};
 
 const provisionForm = ref({
   name: '',
@@ -410,35 +368,7 @@ const openProvisionModal = () => {
   showProvisionModal.value = true;
 };
 
-const openCustomizationModal = (tenant) => {
-  selectedCustomTenant.value = tenant;
-  const cfg = tenant.tenant_config || {};
-  customForm.value = {
-    system_prompt_override: cfg.system_prompt_override || '',
-    llm_model: cfg.llm_model || 'meta-llama/llama-3.3-70b-instruct',
-    llm_temperature: cfg.llm_temperature !== undefined ? cfg.llm_temperature : 0.3,
-    speaking_rate: cfg.speaking_rate !== undefined ? cfg.speaking_rate : 1.0,
-    tts_voice_id: cfg.tts_voice_id || '224a2257dd4943209a683d27a5e41439',
-    greeting_message: cfg.greeting_message || '',
-    stt_language: cfg.stt_language || 'en-US',
-    max_call_duration_min: cfg.max_call_duration_min || 15
-  };
-};
 
-const saveCustomConfig = async () => {
-  if (!selectedCustomTenant.value) return;
-  savingCustom.value = true;
-  try {
-    await api.put(`/api/super/tenants/${selectedCustomTenant.value.tenant_id}/config`, customForm.value);
-    alert(`Successfully saved custom configuration for ${selectedCustomTenant.value.name}!`);
-    selectedCustomTenant.value = null;
-    fetchTenants();
-  } catch (err) {
-    alert(err.response?.data?.detail || 'Failed to save tenant customization.');
-  } finally {
-    savingCustom.value = false;
-  }
-};
 
 const provisionTenant = async () => {
   provisioning.value = true;
@@ -447,8 +377,9 @@ const provisionTenant = async () => {
     successResult.value = res.data;
     showProvisionModal.value = false;
     fetchTenants();
+    showToast('Tenant provisioned successfully.');
   } catch (err) {
-    alert(err.response?.data?.detail || 'Failed to provision tenant.');
+    showToast(err.response?.data?.detail || 'Failed to provision tenant.', 'error');
   } finally {
     provisioning.value = false;
   }
@@ -456,18 +387,24 @@ const provisionTenant = async () => {
 
 const toggleStatus = async (tenant) => {
   const newStatus = tenant.status === 'active' ? 'suspended' : 'active';
-  if (!confirm(`Are you sure you want to change status of ${tenant.name} to ${newStatus}?`)) return;
+  const confirmed = await customConfirm(
+    'Confirm Status Change',
+    `Are you sure you want to change the status of ${tenant.name} to ${newStatus}?`
+  );
+  if (!confirmed) return;
+
   try {
     await api.patch(`/api/super/tenants/${tenant.tenant_id}`, { status: newStatus });
     fetchTenants();
+    showToast(`Tenant status updated to ${newStatus}.`);
   } catch (err) {
-    alert(err.response?.data?.detail || 'Failed to update tenant status.');
+    showToast(err.response?.data?.detail || 'Failed to update tenant status.', 'error');
   }
 };
 
 const copyToClipboard = (text) => {
   navigator.clipboard.writeText(text);
-  alert('Copied to clipboard!');
+  showToast('Copied to clipboard!');
 };
 
 const closeSuccessModal = () => {
