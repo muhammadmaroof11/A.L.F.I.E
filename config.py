@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # Redis (Caching, Rate Limiting, Pub/Sub)
     redis_dsn: str = Field(default="redis://redis:6379/0")
 
+    # Security Secrets
+    jwt_secret_key: str = Field(default="")
+    super_admin_email: str = Field(default="")
+    super_admin_password: str = Field(default="")
+
     @model_validator(mode="after")
     def validate_required_secrets(self) -> "Settings":
         required = {
@@ -44,6 +49,9 @@ class Settings(BaseSettings):
             "openrouter_api_key": self.openrouter_api_key,
             "fish_audio_api_key": self.fish_audio_api_key,
             "twenty_api_key": self.twenty_api_key,
+            "jwt_secret_key": self.jwt_secret_key,
+            "super_admin_email": self.super_admin_email,
+            "super_admin_password": self.super_admin_password,
         }
         missing = [k for k, v in required.items() if not v]
         if missing:

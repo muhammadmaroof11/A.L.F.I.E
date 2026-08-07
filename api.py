@@ -97,6 +97,8 @@ async def lifespan(app: FastAPI):
     global arq_pool
     logger.info("Initializing A.L.F.I.E platform DB pool...")
     await init_telemetry_pool()
+    from telemetry import init_db_schema
+    await init_db_schema()
     await init_redis_pool()
     from telemetry import _pool
     set_webchat_pool(_pool)

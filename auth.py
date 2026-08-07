@@ -1,11 +1,11 @@
-import os
 import jwt
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import HTTPException, Header, Depends
 from pydantic import BaseModel
+from config import settings
 
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+SECRET_KEY = settings.jwt_secret_key
 if not SECRET_KEY:
     raise RuntimeError("CRITICAL SECURITY ERROR: JWT_SECRET_KEY environment variable is missing. Refusing to start.")
 

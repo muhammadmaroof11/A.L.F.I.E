@@ -91,6 +91,10 @@ async def init_db_schema():
                 ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;
                 ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
                 ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS tenant_config JSONB DEFAULT '{}';
+                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR(50) DEFAULT 'payg';
+                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'active';
+                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS subscription_cycle_end TIMESTAMP WITH TIME ZONE;
+                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS included_minutes_balance INTEGER DEFAULT 0;
             """)
 
             # Table for high-speed agent telemetry logs
