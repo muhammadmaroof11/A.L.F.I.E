@@ -18,3 +18,4 @@ python-multipart>=0.0.6
 passlib[bcrypt]>=1.7.4
 PyJWT>=2.8.0
 async-lru>=2.0.4
+stripe>=10.12.0
