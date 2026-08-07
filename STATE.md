@@ -31,6 +31,10 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
   - `alfie_custom_tools`: `id`, `tool_name`, `description`, `webhook_url`, `http_method`, `parameters_json`.
   - `alfie_call_recordings`: `call_id`, `tenant_id`, `niche`, `caller_number`, `duration_seconds`, `transcript`, `sentiment`, `quality_score`, `stt_ms`, `llm_ttft_ms`, `tts_ms`, `total_ms`, `recording_url`.
   - `alfie_rate_cards`: `id`, `tier_name`, `stt_rate_per_min`, `llm_rate_per_1k_tokens`, `tts_rate_per_min`, `markup_multiplier`.
+  - **Niche Specific Tables:**
+    - `alfie_legal_leads`, `alfie_legal_cases`
+    - `alfie_accepted_insurance`, `alfie_medical_appointments`
+    - `alfie_restaurant_inventory`, `alfie_restaurant_reservations`
 - **Endpoints (`api.py`):**
   - Auth: `POST /api/auth/login`
   - Tenant Admin: `GET /api/super/tenants`, `POST /api/super/provision`, `PATCH /api/super/tenants/{id}`, `GET/PUT /api/super/tenants/{id}/config`
@@ -58,13 +62,44 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 ### C. Client Admin UI (`client_admin_ui`)
 - **Routes & Views (`router/index.js`):**
   - `/login` -> `Login.vue`
-  - `/` -> `Dashboard.vue`
+  - `/` -> `Dashboard.vue` (Call Volume Chart & Per-Agent Analytics Bar Chart)
+  - `/settings` -> `Settings.vue` (Read-only Tenant Info, Custom Credit Pricing, & Subscription Management)
+  - `/agents` -> `Agents.vue` (Multiple Agent Management)
   - `/leads` -> `LeadsKanban.vue`
   - `/interactions` -> `InteractionHistory.vue`
   - `/analytics` -> `Analytics.vue`
   - `/agent` -> `AgentConfiguration.vue`
 
-### D. Infrastructure & Scripts
+---
+
+## 3. Synchronization Ledger (Expansion Tasks)
+
+| Component | Status | Description |
+| :--- | :--- | :--- |
+| **Super Admin Agent Configuration** | 🟢 COMPLETED | `TenantDetail.vue` and `super_admin_routes.py` updated to support dynamic per-agent overrides. |
+| **Call Transfers Between Agents** | 🟢 COMPLETED | `tools/core.py` and `agent.py` updated. Integrated internal LiveKit SIP Transfers across departments. |
+| **Monthly Subscription Sweeper** | 🟢 COMPLETED | `worker.py` updated with `arq.cron` periodic task to renew subscriptions and bill tenants automatically. |
+| **Per-Agent Analytics** | 🟢 COMPLETED | `client_routes.py` and `Dashboard.vue` updated with per-agent metrics using Chart.js Bar Chart. |
+| **Custom API Webhooks (Expert Mode)** | 🟢 COMPLETED | Custom tools builder in `AgentConfiguration.vue`. Dynamic schema parsing and HTTP execution in `tools/registry.py` & `agent.py`. |
+| **Luxury Transfer Booking Niche** | 🟢 COMPLETED | OSRM/Nominatim map routing and DB-backed pricing logic injected via `tools/luxury_transport.py`. |
+| **Legal Intake Niche** | 🟢 COMPLETED | Custom DB tables and tools (`tools/legal.py`) added for case status lookups, Hot Lead SIP transfers, and SMS retainer dispatch. |
+| **Medical Reception Niche** | 🟢 COMPLETED | Custom DB tables and tools (`tools/medical.py`) added for insurance network validation and appointment booking. |
+| **Hospitality Concierge Niche** | 🟢 COMPLETED | Custom DB tables and tools (`tools/hospitality.py`) added for dynamic table availability and reservation booking. |
+| **Fault Tolerance & Hardening** | 🟢 COMPLETED | Implemented 3.0s DB acquisition timeouts, 4.0s Webhook HTTP timeouts, LLM Date schema validations (`datetime.strptime`), and Pre-ping SMS for cold handoffs. |
+| **Human Filler for Long Tool Calls** | 🟢 COMPLETED | Prompt engineering applied in `prompts/base.py` to instruct AI to use conversational stalling while webhooks process. |
+| **Client Self-Serve Payments** | 🟡 PENDING | Stripe Voucher/Checkout integration awaits user API Keys. |
+
+---
+
+## 4. Pending Synchronization
+
+### Known Desyncs
+- **Stripe Integration:** Requires `STRIPE_SECRET_KEY` from user to implement Client Self-Serve Payments.
+- **Twilio Credentials:** Requires `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` from user for phone number provisioning (if PSTN routing needed).
+
+---
+
+## 5. Infrastructure & Scripts
 - **Docker (`docker-compose.yml`):**
   - Services: `alfie-agent`, `alfie-mongodb` (Mongo 8.0), `postgres` (Postgres 15-alpine)
 - **Modular Backend API & Routers:**
