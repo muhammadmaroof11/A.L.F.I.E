@@ -49,6 +49,11 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
           Agent Config
         </router-link>
+
+        <router-link to="/billing" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all hover:bg-muted/50 text-muted-foreground hover:text-foreground" active-class="bg-primary/10 text-primary hover:bg-primary/15 border-l-2 border-primary shadow-[inset_0_0_20px_hsl(var(--primary)/0.05)]">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          Billing & Plans
+        </router-link>
       </nav>
 
       <!-- Profile Footer -->

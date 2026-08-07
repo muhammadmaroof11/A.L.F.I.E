@@ -37,6 +37,11 @@ const routes = [
         path: 'agent',
         name: 'Agent Config',
         component: () => import('../views/AgentConfiguration.vue')
+      },
+      {
+        path: 'billing',
+        name: 'Billing',
+        component: () => import('../views/Billing.vue')
       }
     ]
   }
