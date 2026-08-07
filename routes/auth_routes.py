@@ -3,12 +3,12 @@ from datetime import timedelta
 from fastapi import APIRouter, HTTPException
 from auth import LoginRequest, Token, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from provisioning import verify_email_password
+from config import settings
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-
-SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL")
-SUPER_ADMIN_PASSWORD = os.environ.get("SUPER_ADMIN_PASSWORD")
+SUPER_ADMIN_EMAIL = settings.super_admin_email
+SUPER_ADMIN_PASSWORD = settings.super_admin_password
 
 if not SUPER_ADMIN_EMAIL or not SUPER_ADMIN_PASSWORD:
     raise RuntimeError("CRITICAL SECURITY ERROR: SUPER_ADMIN_EMAIL or SUPER_ADMIN_PASSWORD environment variables are missing. Refusing to start.")

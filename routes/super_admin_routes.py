@@ -35,6 +35,10 @@ class TenantConfigCustomizationRequest(BaseModel):
     max_call_duration_min: Optional[int] = None
 
 
+class TenantSubscriptionRequest(BaseModel):
+    subscription_tier: str
+    included_minutes_balance: int
+
 class PersonaRequest(BaseModel):
     niche_name: str
     system_prompt: str
@@ -107,7 +111,7 @@ async def list_tenants():
         raise HTTPException(status_code=500, detail="Database not initialized")
     async with _pool.acquire() as conn:
         records = await conn.fetch(
-            "SELECT tenant_id, name, email, niche, status, credit_limit_usd, tenant_config, created_at FROM alfie_tenants ORDER BY created_at DESC"
+            "SELECT tenant_id, name, email, niche, status, credit_limit_usd, tenant_config, created_at, subscription_tier, included_minutes_balance FROM alfie_tenants ORDER BY created_at DESC"
         )
         res = []
         for r in records:
@@ -212,6 +216,26 @@ async def update_tenant_custom_config(tenant_id: str, req: TenantConfigCustomiza
             uuid.UUID(tenant_id)
         )
         return existing_cfg
+
+
+@router.put("/tenants/{tenant_id}/subscription")
+async def update_tenant_subscription(tenant_id: str, req: TenantSubscriptionRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            UPDATE alfie_tenants
+            SET subscription_tier = $1, included_minutes_balance = $2
+            WHERE tenant_id = $3
+            RETURNING subscription_tier, included_minutes_balance
+            """,
+            req.subscription_tier, req.included_minutes_balance, uuid.UUID(tenant_id)
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        return dict(row)
 
 
 @router.delete("/tenants/{tenant_id}")

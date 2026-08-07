@@ -65,6 +65,34 @@ async def get_client_metrics(tenant_id: str, current_user: dict = Depends(get_cu
         )
 
 
+@router.get("/billing/subscription")
+async def get_client_subscription(tenant_id: str, current_user: dict = Depends(get_current_user)):
+    """Fetch billing and subscription details for a tenant."""
+    if current_user.get("role") != "super_admin" and current_user.get("tenant_id") != tenant_id:
+        raise HTTPException(status_code=403, detail="Forbidden: You can only access your own billing info.")
+
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+        
+    async with _pool.acquire() as conn:
+        import uuid
+        row = await conn.fetchrow(
+            "SELECT subscription_tier, subscription_status, subscription_cycle_end, included_minutes_balance, credit_limit_usd FROM alfie_tenants WHERE tenant_id = $1", 
+            uuid.UUID(tenant_id)
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+            
+        return {
+            "subscription_tier": row["subscription_tier"] or "payg",
+            "subscription_status": row["subscription_status"] or "active",
+            "subscription_cycle_end": row["subscription_cycle_end"].isoformat() if row["subscription_cycle_end"] else None,
+            "included_minutes_balance": row["included_minutes_balance"] or 0,
+            "credit_balance": float(row["credit_limit_usd"]) if row["credit_limit_usd"] is not None else 0.0
+        }
+
+
 @router.get("/config")
 async def get_client_config(tenant_id: str, current_user: dict = Depends(get_current_user)):
     """Fetch tenant_config for the client's workspace."""
