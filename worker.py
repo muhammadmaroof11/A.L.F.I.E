@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from arq import Worker
+from arq import Worker, cron
 from arq.connections import RedisSettings
 from telemetry import init_telemetry_pool, _pool
 from config import settings
@@ -159,7 +159,7 @@ async def process_billing(ctx, call_id: str, tenant_id: str, duration: int, tota
             async with _pool.acquire() as conn:
                 # 1. Fetch tenant subscription details
                 tenant = await conn.fetchrow(
-                    "SELECT subscription_tier, included_minutes_balance FROM alfie_tenants WHERE tenant_id = $1", 
+                    "SELECT subscription_tier, included_minutes_balance, custom_per_minute_rate FROM alfie_tenants WHERE tenant_id = $1", 
                     tenant_id
                 )
                 
@@ -169,6 +169,7 @@ async def process_billing(ctx, call_id: str, tenant_id: str, duration: int, tota
                     
                 tier = tenant["subscription_tier"] or "payg"
                 included_balance = tenant["included_minutes_balance"] or 0
+                custom_rate = float(tenant["custom_per_minute_rate"] or 0.15)
                 
                 minutes_to_bill = minutes_used
                 
@@ -184,15 +185,20 @@ async def process_billing(ctx, call_id: str, tenant_id: str, duration: int, tota
                     logger.info(f"Deducted {deducted} minutes from included balance for tenant {tenant_id}. Remaining: {new_balance}")
                 
                 # 3. Calculate overage cost if any minutes left to bill
+                actual_cost = 0.0
                 if minutes_to_bill > 0:
                     # Rates based on tier
-                    overage_rate = 0.15
-                    if tier == 'plus':
+                    if tier == 'custom':
+                        overage_rate = custom_rate
+                    elif tier == 'plus':
                         overage_rate = 0.12
                     elif tier == 'pro':
                         overage_rate = 0.09
+                    else:
+                        overage_rate = 0.15
                         
                     overage_cost = minutes_to_bill * overage_rate
+                    actual_cost = overage_cost
                     
                     # Deduct from alfie_credit_transactions
                     await conn.execute(
@@ -205,7 +211,6 @@ async def process_billing(ctx, call_id: str, tenant_id: str, duration: int, tota
                     logger.info(f"Billed ${overage_cost:.4f} overage to tenant {tenant_id}")
                     
                 # Update call record cost
-                actual_cost = minutes_to_bill * (0.15 if tier == 'payg' else (0.12 if tier == 'plus' else 0.09))
                 await conn.execute(
                     "UPDATE alfie_call_recordings SET cost_usd = $1 WHERE call_id = $2",
                     actual_cost, call_id
@@ -224,8 +229,49 @@ async def shutdown(ctx):
     logger.info("Worker shutting down...")
     await close_http_client()
 
+async def process_subscription_renewals(ctx):
+    logger.info("Running daily subscription renewal sweeper...")
+    if _pool:
+        try:
+            async with _pool.acquire() as conn:
+                # Find active tenants whose subscription cycle ends today or earlier
+                tenants = await conn.fetch(
+                    "SELECT tenant_id, subscription_tier, custom_monthly_price, custom_included_minutes FROM alfie_tenants WHERE status = 'active' AND subscription_cycle_end <= NOW() AND subscription_tier != 'payg'"
+                )
+                
+                for t in tenants:
+                    tenant_id = t["tenant_id"]
+                    tier = t["subscription_tier"]
+                    
+                    price = 0.0
+                    mins = 0
+                    if tier == 'plus':
+                        price = 99.0
+                        mins = 1000
+                    elif tier == 'pro':
+                        price = 299.0
+                        mins = 4000
+                    elif tier == 'custom':
+                        price = float(t["custom_monthly_price"] or 0)
+                        mins = t["custom_included_minutes"] or 0
+                        
+                    if price > 0:
+                        await conn.execute(
+                            "INSERT INTO alfie_credit_transactions (tenant_id, amount_usd, transaction_type, description) VALUES ($1, $2, $3, $4)",
+                            tenant_id, -price, "subscription", f"Monthly subscription renewal ({tier})"
+                        )
+                        
+                    await conn.execute(
+                        "UPDATE alfie_tenants SET included_minutes_balance = $1, subscription_cycle_end = NOW() + INTERVAL '30 days' WHERE tenant_id = $2",
+                        mins, tenant_id
+                    )
+                    logger.info(f"Renewed subscription for tenant {tenant_id}. Billed ${price}, added {mins} mins.")
+        except Exception as e:
+            logger.error(f"Failed to process renewals: {e}")
+
 class WorkerSettings:
     functions = [generate_call_summary, sync_crm_lead, process_billing]
+    cron_jobs = [cron(process_subscription_renewals, hour=0, minute=0)]
     redis_settings = RedisSettings.from_dsn(settings.redis_dsn)
     on_startup = startup
     on_shutdown = shutdown

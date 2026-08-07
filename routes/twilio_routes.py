@@ -12,19 +12,21 @@ logger = logging.getLogger("alfie.twilio")
 from async_lru import alru_cache
 
 @alru_cache(maxsize=1000)
-async def get_tenant_by_phone(to_number: str):
-    """Cached lookup of tenant_id by phone number."""
+async def get_tenant_and_agent_by_phone(to_number: str):
+    """Cached lookup of tenant_id and agent_id by phone number."""
     if not _pool:
-        return None
+        return None, None
     async with _pool.acquire() as conn:
         query = """
-            SELECT tenant_id 
-            FROM alfie_tenants 
-            WHERE tenant_config->>'twilio_phone_number' = $1
+            SELECT tenant_id, agent_id
+            FROM alfie_phone_numbers 
+            WHERE phone_number = $1
             LIMIT 1
         """
         row = await conn.fetchrow(query, to_number)
-        return row["tenant_id"] if row else None
+        if row:
+            return row["tenant_id"], row["agent_id"]
+        return None, None
 
 @router.post("/incoming")
 async def handle_incoming_call(request: Request):
@@ -44,7 +46,7 @@ async def handle_incoming_call(request: Request):
         return generate_error_twiml("Database connection failed.")
         
     try:
-        tenant_id = await get_tenant_by_phone(to_number)
+        tenant_id, agent_id = await get_tenant_and_agent_by_phone(to_number)
         
         if not tenant_id:
             logger.warning(f"No tenant found for phone number {to_number}")
@@ -53,11 +55,12 @@ async def handle_incoming_call(request: Request):
         # Generate TwiML to bridge to LiveKit SIP trunk
             # LiveKit SIP requires routing to a specific SIP URI format or just the LiveKit host
             # For this demo, we assume LiveKit SIP is running and accessible at a domain defined in settings.
-            # E.g. sip:tenant_id@sip.our-domain.com
+            # E.g. sip:tenant_id_agent_id@sip.our-domain.com
             livekit_sip_domain = getattr(settings, "LIVEKIT_SIP_DOMAIN", "sip.alfie-ai.com")
-            sip_uri = f"sip:{tenant_id}@{livekit_sip_domain}"
+            agent_part = f"_{agent_id}" if agent_id else ""
+            sip_uri = f"sip:{tenant_id}{agent_part}@{livekit_sip_domain}"
             
-            logger.info(f"Routing call for tenant {tenant_id} to {sip_uri}")
+            logger.info(f"Routing call for tenant {tenant_id} and agent {agent_id} to {sip_uri}")
             
             twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
             <Response>

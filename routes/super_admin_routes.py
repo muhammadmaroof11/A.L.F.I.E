@@ -37,7 +37,16 @@ class TenantConfigCustomizationRequest(BaseModel):
 
 class TenantSubscriptionRequest(BaseModel):
     subscription_tier: str
-    included_minutes_balance: int
+    included_minutes_balance: Optional[int] = 0
+    custom_monthly_price: Optional[float] = 0.0
+    custom_included_minutes: Optional[int] = 0
+    custom_per_minute_rate: Optional[float] = 0.15
+
+class AgentUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    system_prompt_override: Optional[str] = None
+    tts_voice_id: Optional[str] = None
+
 
 class PersonaRequest(BaseModel):
     niche_name: str
@@ -86,6 +95,27 @@ class CustomToolRequest(BaseModel):
     http_method: Optional[str] = "POST"
     parameters_json: Optional[dict] = {}
 
+
+class AgentProvisionRequest(BaseModel):
+    name: str
+    niche: Optional[str] = None
+    system_prompt_override: Optional[str] = None
+    llm_model: Optional[str] = None
+    llm_temperature: Optional[float] = None
+    tts_voice_id: Optional[str] = None
+    stt_language: Optional[str] = "en-US"
+
+
+class AgentUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    niche: Optional[str] = None
+    system_prompt_override: Optional[str] = None
+    llm_model: Optional[str] = None
+    llm_temperature: Optional[float] = None
+    tts_voice_id: Optional[str] = None
+    stt_language: Optional[str] = None
+
+
 @router.post("/provision")
 async def provision_new_tenant(req: ProvisionRequest):
     result = await create_tenant(req.name, req.niche, req.email, req.password, req.credit_limit_usd)
@@ -111,7 +141,7 @@ async def list_tenants():
         raise HTTPException(status_code=500, detail="Database not initialized")
     async with _pool.acquire() as conn:
         records = await conn.fetch(
-            "SELECT tenant_id, name, email, niche, status, credit_limit_usd, tenant_config, created_at, subscription_tier, included_minutes_balance FROM alfie_tenants ORDER BY created_at DESC"
+            "SELECT tenant_id, name, email, niche, status, credit_limit_usd, tenant_config, created_at, subscription_tier, included_minutes_balance, custom_monthly_price, custom_included_minutes, custom_per_minute_rate FROM alfie_tenants ORDER BY created_at DESC"
         )
         res = []
         for r in records:
@@ -218,6 +248,23 @@ async def update_tenant_custom_config(tenant_id: str, req: TenantConfigCustomiza
         return existing_cfg
 
 
+@router.get("/tenants/{tenant_id}/agents")
+async def get_tenant_agents(tenant_id: str):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        records = await conn.fetch("SELECT * FROM alfie_tenant_agents WHERE tenant_id = $1", uuid.UUID(tenant_id))
+        result = []
+        for r in records:
+            d = dict(r)
+            d["agent_id"] = str(d["agent_id"])
+            d["tenant_id"] = str(d["tenant_id"])
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            result.append(d)
+        return result
+
+
 @router.put("/tenants/{tenant_id}/subscription")
 async def update_tenant_subscription(tenant_id: str, req: TenantSubscriptionRequest):
     from telemetry import _pool
@@ -227,15 +274,180 @@ async def update_tenant_subscription(tenant_id: str, req: TenantSubscriptionRequ
         row = await conn.fetchrow(
             """
             UPDATE alfie_tenants
-            SET subscription_tier = $1, included_minutes_balance = $2
-            WHERE tenant_id = $3
-            RETURNING subscription_tier, included_minutes_balance
+            SET subscription_tier = $1, 
+                included_minutes_balance = $2,
+                custom_monthly_price = $3,
+                custom_included_minutes = $4,
+                custom_per_minute_rate = $5
+            WHERE tenant_id = $6
+            RETURNING subscription_tier, included_minutes_balance, custom_monthly_price, custom_included_minutes, custom_per_minute_rate
             """,
-            req.subscription_tier, req.included_minutes_balance, uuid.UUID(tenant_id)
+            req.subscription_tier, 
+            req.included_minutes_balance, 
+            req.custom_monthly_price, 
+            req.custom_included_minutes,
+            req.custom_per_minute_rate,
+            uuid.UUID(tenant_id)
         )
         if not row:
             raise HTTPException(status_code=404, detail="Tenant not found")
         return dict(row)
+
+
+@router.get("/tenants/{tenant_id}/agents")
+async def get_tenant_agents(tenant_id: str):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        # Fetch agents and their associated phone number(s) if any
+        query = """
+            SELECT a.agent_id, a.tenant_id, a.name, a.niche, 
+                   a.system_prompt_override, a.llm_model, a.llm_temperature, 
+                   a.tts_voice_id, a.stt_language, a.created_at,
+                   json_agg(p.phone_number) as phone_numbers
+            FROM alfie_tenant_agents a
+            LEFT JOIN alfie_phone_numbers p ON a.agent_id = p.agent_id
+            WHERE a.tenant_id = $1
+            GROUP BY a.agent_id
+            ORDER BY a.created_at DESC
+        """
+        records = await conn.fetch(query, uuid.UUID(tenant_id))
+        res = []
+        for r in records:
+            d = dict(r)
+            d["agent_id"] = str(d["agent_id"])
+            d["tenant_id"] = str(d["tenant_id"])
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            
+            # clean up phone numbers json_agg array that has [null]
+            if d.get("phone_numbers") and len(d["phone_numbers"]) == 1 and d["phone_numbers"][0] is None:
+                d["phone_numbers"] = []
+                
+            res.append(d)
+        return res
+
+@router.put("/tenants/{tenant_id}/agents/{agent_id}")
+async def update_tenant_agent(tenant_id: str, agent_id: str, req: AgentUpdateRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        # Check if agent belongs to tenant
+        existing = await conn.fetchrow("SELECT agent_id FROM alfie_tenant_agents WHERE agent_id = $1 AND tenant_id = $2", uuid.UUID(agent_id), uuid.UUID(tenant_id))
+        if not existing:
+            raise HTTPException(status_code=404, detail="Agent not found for this tenant")
+
+        # Update fields dynamically
+        fields = []
+        values = []
+        idx = 1
+        
+        if req.name is not None:
+            fields.append(f"name = ${idx}")
+            values.append(req.name)
+            idx += 1
+        if req.system_prompt_override is not None:
+            fields.append(f"system_prompt_override = ${idx}")
+            values.append(req.system_prompt_override)
+            idx += 1
+        if req.tts_voice_id is not None:
+            fields.append(f"tts_voice_id = ${idx}")
+            values.append(req.tts_voice_id)
+            idx += 1
+            
+        if not fields:
+            return {"status": "ok", "message": "No fields to update"}
+            
+        values.append(uuid.UUID(agent_id))
+        query = f"UPDATE alfie_tenant_agents SET {', '.join(fields)} WHERE agent_id = ${idx}"
+        
+        await conn.execute(query, *values)
+        return {"status": "ok"}
+
+
+@router.post("/tenants/{tenant_id}/agents")
+async def provision_agent(tenant_id: str, req: AgentProvisionRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        # 1. Check if tenant exists
+        tenant_exists = await conn.fetchval("SELECT 1 FROM alfie_tenants WHERE tenant_id = $1", uuid.UUID(tenant_id))
+        if not tenant_exists:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+            
+        # 2. Insert Agent
+        agent_id = str(uuid.uuid4())
+        await conn.execute("""
+            INSERT INTO alfie_tenant_agents (
+                agent_id, tenant_id, name, niche, system_prompt_override, 
+                llm_model, llm_temperature, tts_voice_id, stt_language
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        """, uuid.UUID(agent_id), uuid.UUID(tenant_id), req.name, req.niche, 
+             req.system_prompt_override, req.llm_model, req.llm_temperature, 
+             req.tts_voice_id, req.stt_language)
+        
+        # 3. Simulate provisioning a phone number
+        import random
+        fake_number = f"+1{random.randint(200,999)}{random.randint(1000000,9999999)}"
+        
+        await conn.execute("""
+            INSERT INTO alfie_phone_numbers (phone_number, tenant_id, niche, agent_id, provider)
+            VALUES ($1, $2, $3, $4, $5)
+        """, fake_number, str(tenant_id), req.niche or 'general', uuid.UUID(agent_id), 'Simulated SIP')
+        
+        return {
+            "status": "success",
+            "agent_id": agent_id,
+            "phone_number": fake_number
+        }
+
+
+@router.put("/agents/{agent_id}")
+async def update_agent(agent_id: str, req: AgentUpdateRequest):
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        updates = []
+        params = []
+        idx = 1
+        
+        update_fields = req.dict(exclude_unset=True)
+        if not update_fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+            
+        for k, v in update_fields.items():
+            updates.append(f"{k} = ${idx}")
+            params.append(v)
+            idx += 1
+            
+        params.append(uuid.UUID(agent_id))
+        
+        query = f"""
+            UPDATE alfie_tenant_agents 
+            SET {', '.join(updates)} 
+            WHERE agent_id = ${idx} 
+            RETURNING *
+        """
+        row = await conn.fetchrow(query, *params)
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Agent not found")
+            
+        # Clear redis cache for this agent
+        from telemetry import get_redis
+        redis = await get_redis()
+        if redis:
+            await redis.delete(f"tenant_config:{agent_id}")
+            
+        d = dict(row)
+        d["agent_id"] = str(d["agent_id"])
+        d["tenant_id"] = str(d["tenant_id"])
+        if d.get("created_at"):
+            d["created_at"] = d["created_at"].isoformat()
+        return d
 
 
 @router.delete("/tenants/{tenant_id}")
@@ -704,3 +916,43 @@ async def delete_custom_tool(id: int):
         if res == "DELETE 0":
             raise HTTPException(status_code=404, detail="Custom tool not found")
         return {"status": "deleted"}
+
+
+@router.get("/dashboard/stats")
+async def get_dashboard_stats():
+    from telemetry import _pool
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        # Get active tenants
+        tenants_count = await conn.fetchval("SELECT COUNT(*) FROM alfie_tenants WHERE status = 'active'")
+        
+        # Calculate revenue from active tenants
+        tenants = await conn.fetch("SELECT subscription_tier, custom_monthly_price FROM alfie_tenants WHERE status = 'active'")
+        revenue = 0.0
+        for t in tenants:
+            tier = t["subscription_tier"]
+            if tier == "plus": revenue += 99.0
+            elif tier == "pro": revenue += 299.0
+            elif tier == "custom": revenue += float(t["custom_monthly_price"] or 0)
+            
+        # Calculate costs and calls
+        calls_stats = await conn.fetchrow("SELECT COUNT(*) as count, SUM(cost_usd) as total_cost FROM alfie_call_recordings")
+        total_calls = calls_stats["count"] or 0
+        total_cost = calls_stats["total_cost"] or 0.0
+        
+        gross_margin = revenue - float(total_cost)
+
+        # Get total agents and numbers
+        total_agents = await conn.fetchval("SELECT COUNT(*) FROM alfie_tenant_agents")
+        total_numbers = await conn.fetchval("SELECT COUNT(*) FROM alfie_phone_numbers")
+
+        return {
+            "active_tenants": tenants_count,
+            "total_calls": total_calls,
+            "total_agents": total_agents,
+            "total_numbers": total_numbers,
+            "total_revenue": revenue,
+            "total_cost": float(total_cost),
+            "gross_margin": gross_margin
+        }
