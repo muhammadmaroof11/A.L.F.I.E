@@ -18,50 +18,58 @@ class ToolRegistry:
         self._available_tools[name] = tool_class
         logging.info(f"Registered tool: {name}")
 
-    async def build_toolsets(self, enabled_tools: List[str], **kwargs) -> List[llm.FunctionContext]:
+    async def build_toolsets(self, enabled_tools: List[str], custom_tools: List[dict] = None, niche: str = "", **kwargs) -> List[llm.FunctionContext]:
         """
         Builds a list of Toolsets containing only the tools
         enabled for this specific tenant/agent.
         """
         toolsets: List[llm.FunctionContext] = []
-
-        from telemetry import _pool
-        
-        # Load custom tools from DB if any
-        custom_tools_db = {}
-        if _pool:
-            try:
-                async with _pool.acquire() as conn:
-                    records = await conn.fetch("SELECT * FROM alfie_custom_tools")
-                    for r in records:
-                        custom_tools_db[r["tool_name"]] = dict(r)
-            except Exception as e:
-                logging.warning(f"Could not load custom tools from DB: {e}")
+        custom_tools = custom_tools or []
 
         for tool_name in enabled_tools:
             if tool_name in self._available_tools:
                 tool_class = self._available_tools[tool_name]
                 toolsets.append(tool_class(**kwargs))
-            elif tool_name in custom_tools_db:
-                # Dynamically generate a tool class for the custom webhook
-                ct = custom_tools_db[tool_name]
-                try:
-                    params_json = json.loads(ct["parameters_json"]) if ct["parameters_json"] else {}
-                    dynamic_tool = self._create_dynamic_tool_class(
-                        name=ct["tool_name"],
-                        description=ct["description"],
-                        url=ct["webhook_url"],
-                        method=ct["http_method"],
-                        params=params_json
-                    )
-                    toolsets.append(dynamic_tool(**kwargs))
-                    logging.info(f"Loaded dynamic custom tool: {tool_name}")
-                except Exception as e:
-                    logging.error(f"Failed to build dynamic tool {tool_name}: {e}")
             else:
                 logging.warning(
                     f"Tool {tool_name} requested but not found in registry or DB."
                 )
+                
+        # Inject niche-specific tools
+        if niche == "luxury_transfer":
+            if "luxury_transport_tools" in self._available_tools:
+                toolsets.append(self._available_tools["luxury_transport_tools"](**kwargs))
+        elif niche == "legal_intake":
+            if "legal_intake_tools" in self._available_tools:
+                toolsets.append(self._available_tools["legal_intake_tools"](**kwargs))
+        elif niche == "medical_reception":
+            if "medical_tools" in self._available_tools:
+                toolsets.append(self._available_tools["medical_tools"](**kwargs))
+        elif niche == "hospitality_concierge":
+            if "hospitality_tools" in self._available_tools:
+                toolsets.append(self._available_tools["hospitality_tools"](**kwargs))
+
+        # Dynamically build custom tools configured by the tenant
+        for ct in custom_tools:
+            try:
+                params_json = ct.get("schema", {})
+                if isinstance(params_json, str):
+                    try:
+                        params_json = json.loads(params_json)
+                    except:
+                        params_json = {}
+                        
+                dynamic_tool = self._create_dynamic_tool_class(
+                    name=ct.get("name", "custom_tool"),
+                    description=ct.get("description", ""),
+                    url=ct.get("webhook_url", ""),
+                    method="POST",
+                    params=params_json
+                )
+                toolsets.append(dynamic_tool(**kwargs))
+                logging.info(f"Loaded dynamic custom tool: {ct.get('name')}")
+            except Exception as e:
+                logging.error(f"Failed to build dynamic tool {ct.get('name')}: {e}")
 
         return toolsets
 
@@ -89,7 +97,7 @@ class ToolRegistry:
                 except Exception:
                     payload = {"raw_args": arguments_json}
                     
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(timeout=4.0) as client:
                     if method.upper() == "GET":
                         res = await client.get(url, params=payload)
                     else:
