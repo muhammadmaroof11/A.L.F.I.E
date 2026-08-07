@@ -34,7 +34,12 @@ const routes = [
         component: () => import('../views/Analytics.vue')
       },
       {
-        path: 'agent',
+        path: 'agents',
+        name: 'Agents Roster',
+        component: () => import('../views/AgentsRoster.vue')
+      },
+      {
+        path: 'agents/:agent_id',
         name: 'Agent Config',
         component: () => import('../views/AgentConfiguration.vue')
       },

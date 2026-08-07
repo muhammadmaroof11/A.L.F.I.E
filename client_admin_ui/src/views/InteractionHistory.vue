@@ -16,6 +16,10 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <span class="px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider bg-background border border-border text-muted-foreground flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            {{ interaction.agent_name }}
+          </span>
           <span class="px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider bg-accent text-accent-foreground border border-accent">
             Score: {{ interaction.score }}/10
           </span>
@@ -39,9 +43,9 @@
       <div class="bg-background rounded-xl p-5 border border-border text-sm text-muted-foreground space-y-4 font-mono shadow-sm">
         <div class="flex gap-4">
           <span class="text-foreground font-semibold min-w-[60px] flex items-center gap-1">
-            <div class="w-1.5 h-1.5 bg-accent rounded-full"></div> Alfie
+            <div class="w-1.5 h-1.5 bg-accent rounded-full"></div> {{ interaction.agent_name.split(' ')[0] }}
           </span>
-          <p class="leading-relaxed">Hello! This is Alfie from the leasing office. How can I help you today?</p>
+          <p class="leading-relaxed">Hello! This is {{ interaction.agent_name.split(' ')[0] }} from the leasing office. How can I help you today?</p>
         </div>
         <div class="flex gap-4">
           <span class="text-primary font-semibold min-w-[60px] flex items-center gap-1">
@@ -64,14 +68,16 @@ const interactions = ref([
     caller: '+1 (555) 019-2834',
     date: 'Oct 24, 2026 2:14 PM',
     duration: '4m 12s',
-    score: 8
+    score: 8,
+    agent_name: 'Alfie (Support)'
   },
   {
     id: 2,
     caller: '+1 (555) 998-1122',
     date: 'Oct 24, 2026 11:30 AM',
     duration: '2m 05s',
-    score: 4
+    score: 4,
+    agent_name: 'Sarah (Sales)'
   }
 ]);
 </script>

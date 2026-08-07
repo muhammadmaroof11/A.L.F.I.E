@@ -51,17 +51,17 @@
       </div>
 
       <div class="rounded-xl glass-panel text-card-foreground hover-glow relative overflow-hidden group">
-        <div class="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         <div class="p-6 flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-          <h3 class="tracking-tight text-sm font-medium">Avg Audio Latency</h3>
-          <div class="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-rose-500"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <h3 class="tracking-tight text-sm font-medium">Gross Margin</h3>
+          <div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           </div>
         </div>
         <div class="p-6 pt-0 relative z-10">
-          <div class="text-3xl font-bold font-mono text-foreground tracking-tight">341<span class="text-lg text-muted-foreground font-sans">ms</span></div>
+          <div class="text-3xl font-bold font-mono text-foreground tracking-tight">${{ animatedMargin }}</div>
           <p class="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-            <span class="text-rose-500 font-medium flex items-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg> 12ms</span> from yesterday
+            <span class="text-rose-500 font-medium flex items-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg> ${{ animatedCost }}</span> raw operational cost
           </p>
         </div>
       </div>
@@ -202,6 +202,8 @@ import api from '../services/api';
 const animatedCalls = ref("0");
 const animatedTenants = ref("0");
 const animatedRevenue = ref("0");
+const animatedMargin = ref("0");
+const animatedCost = ref("0");
 const liveCalls = ref([]);
 let ws = null;
 
@@ -241,16 +243,19 @@ const animateValue = (refObj, start, end, duration) => {
 
 const loadStats = async () => {
   try {
-    const res = await api.get('/api/super/tenants');
-    const tenantsList = res.data || [];
-    const activeCount = tenantsList.filter(t => t.status === 'active').length || tenantsList.length;
-    animateValue(animatedTenants, 0, activeCount > 0 ? activeCount : 1, 800);
+    const res = await api.get('/api/super/dashboard/stats');
+    const data = res.data || {};
+    
+    animateValue(animatedTenants, 0, data.active_tenants || 0, 800);
+    animateValue(animatedCalls, 0, data.total_calls || 0, 1200);
+    animateValue(animatedRevenue, 0, data.total_revenue || 0, 900);
+    animateValue(animatedMargin, 0, data.gross_margin || 0, 1000);
+    
+    // Convert float to string with 2 decimal places for raw cost without animation
+    animatedCost.value = (data.total_cost || 0).toFixed(2);
   } catch (e) {
     console.warn('Could not fetch dashboard stats:', e);
-    animateValue(animatedTenants, 0, 1, 800);
   }
-  animateValue(animatedCalls, 0, 142, 1200);
-  animateValue(animatedRevenue, 0, 450, 900);
 };
 
 onMounted(() => {

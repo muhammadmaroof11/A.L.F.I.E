@@ -66,87 +66,52 @@
         </div>
       </div>
 
-      <!-- Brain (LLM) -->
+      <!-- Agents Roster -->
       <div class="rounded-xl glass-panel border border-border/60 shadow-lg overflow-hidden transition-all hover:border-emerald-500/30 group break-inside-avoid">
         <div class="p-6 border-b border-border/40 bg-gradient-to-r from-emerald-500/5 to-transparent">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
             <div>
-              <h3 class="font-semibold text-lg text-foreground">Brain Engine (LLM)</h3>
-              <p class="text-xs text-muted-foreground mt-0.5">Configure the reasoning engine and conversational warmth.</p>
+              <h3 class="font-semibold text-lg text-foreground">Tenant Agents</h3>
+              <p class="text-xs text-muted-foreground mt-0.5">Configured agents for this tenant (Read-Only).</p>
             </div>
           </div>
         </div>
-        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 bg-background/20">
-          <div class="space-y-2">
-            <label class="text-sm font-semibold text-foreground">Conversational Model</label>
-            <select class="flex h-11 w-full rounded-md border border-input bg-background px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500" v-model="form.llm_model">
-              <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B Instruct (Human-Like)</option>
-              <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B Instruct (Ultra Fast)</option>
-              <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (High Empathy)</option>
-              <option value="openai/gpt-4o">GPT-4o Omnimodal</option>
-              <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B (Multilingual)</option>
-            </select>
-          </div>
-
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <label class="text-sm font-semibold text-foreground">Temperature (Warmth)</label>
-              <span class="font-mono text-xs bg-background px-2.5 py-1 rounded-md text-foreground border border-border/80 shadow-sm font-bold">{{ form.llm_temperature.toFixed(2) }}</span>
-            </div>
-            <input type="range" class="w-full accent-emerald-500 cursor-grab active:cursor-grabbing" min="0" max="1" step="0.05" v-model.number="form.llm_temperature">
-            <div class="flex justify-between text-[11px] font-medium text-muted-foreground">
-              <span>Robotic (0.0)</span>
-              <span>Creative (1.0)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Voice (TTS) -->
-      <div class="rounded-xl glass-panel border border-border/60 shadow-lg overflow-hidden transition-all hover:border-amber-500/30 group break-inside-avoid">
-        <div class="p-6 border-b border-border/40 bg-gradient-to-r from-amber-500/5 to-transparent">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-            </div>
-            <div>
-              <h3 class="font-semibold text-lg text-foreground">Voice Synthesis (TTS)</h3>
-              <p class="text-xs text-muted-foreground mt-0.5">Control how the agent sounds to the caller.</p>
-            </div>
-          </div>
-        </div>
-        <div class="p-6 space-y-8 bg-background/20">
-          <div class="space-y-2">
-            <label class="text-sm font-semibold text-foreground">Discover & Assign Voice</label>
-            <select class="flex h-11 w-full rounded-md border border-input bg-background px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus:border-amber-500" @change="e => { if(e.target.value) form.tts_voice_id = e.target.value; }">
-              <option value="">-- Select from Fish Audio Library --</option>
-              <option v-for="voice in voices" :key="voice.id" :value="voice.id">
-                {{ voice.title }} (by {{ voice.author }})
-              </option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="space-y-2">
-              <label class="text-sm font-semibold text-foreground">Fish Audio Voice ID</label>
-              <input type="text" class="flex h-11 w-full rounded-md border border-input bg-background px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus:border-amber-500 font-mono text-xs text-amber-600 dark:text-amber-500 font-bold" v-model="form.tts_voice_id" placeholder="Voice ID string..." />
-            </div>
-
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-semibold text-foreground">Speaking Speed Rate</label>
-                <span class="font-mono text-xs bg-background px-2.5 py-1 rounded-md text-foreground border border-border/80 shadow-sm font-bold">{{ form.speaking_rate.toFixed(1) }}x</span>
-              </div>
-              <input type="range" class="w-full accent-amber-500 cursor-grab active:cursor-grabbing" min="0.5" max="2.0" step="0.1" v-model.number="form.speaking_rate">
-              <div class="flex justify-between text-[11px] font-medium text-muted-foreground">
-                <span>Slow (0.5x)</span>
-                <span>Fast (2.0x)</span>
-              </div>
-            </div>
-          </div>
+        <div class="p-0 overflow-x-auto bg-background/20">
+          <table class="w-full text-sm text-left">
+            <thead class="text-xs uppercase bg-muted/30 text-muted-foreground border-b border-border/40">
+              <tr>
+                <th class="px-6 py-4 font-medium tracking-wider">Agent Name</th>
+                <th class="px-6 py-4 font-medium tracking-wider">Niche</th>
+                <th class="px-6 py-4 font-medium tracking-wider">Model</th>
+                <th class="px-6 py-4 font-medium tracking-wider">Phone #</th>
+                <th class="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border/40">
+              <tr v-for="agent in agents" :key="agent.agent_id" class="hover:bg-muted/10 transition-colors">
+                <td class="px-6 py-4 font-medium text-foreground">{{ agent.name }}</td>
+                <td class="px-6 py-4">
+                  <span class="px-2 py-1 text-[10px] uppercase font-bold tracking-wider rounded-md bg-accent text-accent-foreground border border-accent/50">{{ agent.niche }}</span>
+                </td>
+                <td class="px-6 py-4 text-xs font-mono text-muted-foreground">{{ agent.llm_model || 'Default' }}</td>
+                <td class="px-6 py-4 text-xs font-mono text-muted-foreground">
+                  <span v-if="agent.phone_numbers && agent.phone_numbers.length" v-for="phone in agent.phone_numbers" :key="phone" class="block">
+                    {{ phone }}
+                  </span>
+                  <span v-else class="text-muted-foreground/50">Unassigned</span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <button @click.prevent="openEditAgent(agent)" class="text-sm font-medium text-blue-500 hover:text-blue-400">Edit</button>
+                </td>
+              </tr>
+              <tr v-if="!agents || agents.length === 0">
+                <td colspan="5" class="px-6 py-8 text-center text-muted-foreground">No agents provisioned for this tenant.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -158,22 +123,12 @@
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
             </div>
             <div>
-              <h3 class="font-semibold text-lg text-foreground">Advanced Limits & STT</h3>
-              <p class="text-xs text-muted-foreground mt-0.5">Language mapping and guardrails.</p>
+              <h3 class="font-semibold text-lg text-foreground">Advanced Limits</h3>
+              <p class="text-xs text-muted-foreground mt-0.5">Usage and guardrails.</p>
             </div>
           </div>
         </div>
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 bg-background/20">
-          <div class="space-y-2">
-            <label class="text-sm font-semibold text-foreground">STT Streaming Language</label>
-            <select class="flex h-11 w-full rounded-md border border-input bg-background px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus:border-rose-500" v-model="form.stt_language">
-              <option value="en-US">English (US)</option>
-              <option value="en-UK">English (UK)</option>
-              <option value="ur-PK">Urdu (PK)</option>
-              <option value="ar">Arabic</option>
-            </select>
-          </div>
-
           <div class="space-y-2">
             <label class="text-sm font-semibold text-foreground">Max Call Duration (Minutes)</label>
             <input type="number" class="flex h-11 w-full rounded-md border border-input bg-background px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus:border-rose-500 font-mono font-bold" v-model.number="form.max_call_duration_min" />
@@ -201,7 +156,26 @@
               <option value="payg">Pay As You Go ($0/mo, $0.15/min)</option>
               <option value="plus">Plus ($99/mo, 1000 mins included)</option>
               <option value="pro">Pro ($299/mo, 4000 mins included)</option>
+              <option value="custom">Enterprise Custom</option>
             </select>
+          </div>
+
+          <div v-if="form.subscription_tier === 'custom'" class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in zoom-in-95 duration-300">
+            <div class="space-y-2">
+              <label class="text-sm font-semibold text-foreground flex items-center gap-2">
+                Custom Monthly Price
+                <span class="text-xs bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-full">USD</span>
+              </label>
+              <input type="number" step="0.01" class="flex h-11 w-full rounded-md border border-input bg-background px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus:border-blue-500 font-mono" v-model.number="form.custom_monthly_price" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-semibold text-foreground">Custom Included Minutes</label>
+              <input type="number" class="flex h-11 w-full rounded-md border border-input bg-background px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus:border-blue-500 font-mono" v-model.number="form.custom_included_minutes" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-semibold text-foreground">Custom Per-Minute Rate ($)</label>
+              <input type="number" step="0.01" class="flex h-11 w-full rounded-md border border-input bg-background px-4 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus:border-blue-500 font-mono" v-model.number="form.custom_per_minute_rate" />
+            </div>
           </div>
 
           <div class="space-y-2">
@@ -213,6 +187,42 @@
       </div>
       </div> <!-- End of grid -->
     </form>
+
+    <!-- Edit Agent Modal -->
+    <div v-if="isEditingAgent" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div class="bg-card w-full max-w-lg rounded-xl shadow-2xl border border-border/60 overflow-hidden flex flex-col">
+        <div class="px-6 py-4 border-b border-border/40 flex justify-between items-center bg-muted/20">
+          <h3 class="text-lg font-semibold text-foreground">Edit Agent Configurations</h3>
+          <button @click="closeEditAgent" class="text-muted-foreground hover:text-foreground transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="p-6 space-y-4">
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-foreground">Agent Name</label>
+            <input type="text" v-model="editingAgentData.name" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-foreground">Voice ID (ElevenLabs / PlayHT)</label>
+            <input type="text" v-model="editingAgentData.tts_voice_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 font-mono" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-foreground flex justify-between">
+              System Prompt Override
+              <span class="text-xs text-muted-foreground font-normal">Overrides Niche Prompt</span>
+            </label>
+            <textarea v-model="editingAgentData.system_prompt_override" rows="5" class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 resize-y" placeholder="You are an AI assistant..."></textarea>
+          </div>
+        </div>
+        <div class="px-6 py-4 border-t border-border/40 bg-muted/20 flex justify-end gap-3">
+          <button @click="closeEditAgent" class="px-4 py-2 text-sm font-medium text-foreground bg-secondary hover:bg-secondary/80 rounded-md transition-colors">Cancel</button>
+          <button @click="saveAgent" :disabled="savingAgent" class="px-4 py-2 text-sm font-medium text-primary-foreground bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors shadow-sm disabled:opacity-50">
+            {{ savingAgent ? 'Saving...' : 'Save Agent' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -226,21 +236,19 @@ const router = useRouter();
 
 const tenantId = route.params.id;
 const tenant = ref(null);
-const voices = ref([]);
+const agents = ref([]);
 const loading = ref(true);
 const saving = ref(false);
 
 const form = ref({
   system_prompt_override: '',
-  llm_model: 'meta-llama/llama-3.3-70b-instruct',
-  llm_temperature: 0.3,
-  speaking_rate: 1.0,
-  tts_voice_id: '224a2257dd4943209a683d27a5e41439',
   greeting_message: '',
-  stt_language: 'en-US',
   max_call_duration_min: 15,
   subscription_tier: 'payg',
-  included_minutes_balance: 0
+  included_minutes_balance: 0,
+  custom_monthly_price: 0,
+  custom_included_minutes: 0,
+  custom_per_minute_rate: 0.15
 });
 
 const originalForm = ref(null);
@@ -265,15 +273,13 @@ const fetchTenant = async () => {
       const cfg = t.tenant_config || {};
       form.value = {
         system_prompt_override: cfg.system_prompt_override || '',
-        llm_model: cfg.llm_model || 'meta-llama/llama-3.3-70b-instruct',
-        llm_temperature: cfg.llm_temperature !== undefined ? cfg.llm_temperature : 0.3,
-        speaking_rate: cfg.speaking_rate !== undefined ? cfg.speaking_rate : 1.0,
-        tts_voice_id: cfg.tts_voice_id || '224a2257dd4943209a683d27a5e41439',
         greeting_message: cfg.greeting_message || '',
-        stt_language: cfg.stt_language || 'en-US',
         max_call_duration_min: cfg.max_call_duration_min || 15,
         subscription_tier: t.subscription_tier || 'payg',
-        included_minutes_balance: t.included_minutes_balance || 0
+        included_minutes_balance: t.included_minutes_balance || 0,
+        custom_monthly_price: t.custom_monthly_price || 0,
+        custom_included_minutes: t.custom_included_minutes || 0,
+        custom_per_minute_rate: t.custom_per_minute_rate !== undefined ? parseFloat(t.custom_per_minute_rate) : 0.15
       };
       originalForm.value = JSON.parse(JSON.stringify(form.value));
     } else {
@@ -285,12 +291,53 @@ const fetchTenant = async () => {
   }
 };
 
-const fetchVoices = async () => {
+const fetchAgents = async () => {
   try {
-    const res = await api.get('/api/super/fish-audio/voices');
-    voices.value = res.data?.items || [];
+    const res = await api.get(`/api/super/tenants/${tenantId}/agents`);
+    agents.value = res.data || [];
   } catch (err) {
-    console.error(err);
+    console.error("Failed to fetch tenant agents:", err);
+  }
+};
+
+const isEditingAgent = ref(false);
+const savingAgent = ref(false);
+const editingAgentData = ref({
+  agent_id: '',
+  name: '',
+  tts_voice_id: '',
+  system_prompt_override: ''
+});
+
+const openEditAgent = (agent) => {
+  editingAgentData.value = {
+    agent_id: agent.agent_id,
+    name: agent.name || '',
+    tts_voice_id: agent.tts_voice_id || '',
+    system_prompt_override: agent.system_prompt_override || ''
+  };
+  isEditingAgent.value = true;
+};
+
+const closeEditAgent = () => {
+  isEditingAgent.value = false;
+};
+
+const saveAgent = async () => {
+  savingAgent.value = true;
+  try {
+    await api.put(`/api/super/tenants/${tenantId}/agents/${editingAgentData.value.agent_id}`, {
+      name: editingAgentData.value.name,
+      tts_voice_id: editingAgentData.value.tts_voice_id,
+      system_prompt_override: editingAgentData.value.system_prompt_override
+    });
+    // refresh agents list
+    await fetchAgents();
+    closeEditAgent();
+  } catch (err) {
+    alert(err.response?.data?.detail || 'Failed to update agent');
+  } finally {
+    savingAgent.value = false;
   }
 };
 
@@ -304,7 +351,10 @@ const saveConfig = async () => {
     await api.put(`/api/super/tenants/${tenantId}/config`, configPayload);
     await api.put(`/api/super/tenants/${tenantId}/subscription`, {
       subscription_tier: form.value.subscription_tier,
-      included_minutes_balance: form.value.included_minutes_balance
+      included_minutes_balance: form.value.included_minutes_balance,
+      custom_monthly_price: form.value.custom_monthly_price,
+      custom_included_minutes: form.value.custom_included_minutes,
+      custom_per_minute_rate: form.value.custom_per_minute_rate
     });
     originalForm.value = JSON.parse(JSON.stringify(form.value));
   } catch (err) {
@@ -316,7 +366,7 @@ const saveConfig = async () => {
 
 onMounted(async () => {
   loading.value = true;
-  await Promise.all([fetchTenant(), fetchVoices()]);
+  await Promise.all([fetchTenant(), fetchAgents()]);
   loading.value = false;
 });
 </script>
