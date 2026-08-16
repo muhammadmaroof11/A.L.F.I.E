@@ -322,7 +322,7 @@ async def post_call_processing(
     chat_ctx: llm.ChatContext, tenant_id: str, room_name: str, duration_seconds: int, interruption_count: int
 ):
     """Runs after a call ends: fetch recording URL, log billing, and enqueue background tasks."""
-    global arq_pool
+    global arq_pool  # noqa: F824 — assigned in prewarm()
     
     # 1. Build transcript from chat context
     messages = [

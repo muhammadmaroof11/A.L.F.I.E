@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
+import json
+import uuid
+import random
 from auth import get_current_user
 from telemetry import _pool
 
