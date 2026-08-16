@@ -25,13 +25,13 @@ jobs:
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --extend-ignore=E501 --statistics
+        flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=120 --extend-ignore=E501 --statistics
 
     - name: Check formatting with black
       run: |
-        black --check .
+        black --check backend/
 
   docker-build-test:
     runs-on: ubuntu-latest
@@ -39,19 +39,35 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Build API Image
-      run: docker build -t alfie-api -f Dockerfile.api .
+      run: docker build -t alfie-api -f backend/Dockerfile.api backend/
       
     - name: Build Agent Image
-      run: docker build -t alfie-agent -f Dockerfile .
-      
+      run: docker build -t alfie-agent -f backend/Dockerfile backend/
+
+  frontend-build-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
     - name: Build Super Admin UI
       run: |
         cd super_admin_ui
-        npm install
-        docker build -t super-admin-ui -f Dockerfile .
-        
+        npm ci
+        npm run build
+
     - name: Build Client Admin UI
       run: |
         cd client_admin_ui
-        npm install
-        docker build -t client-admin-ui -f Dockerfile .
+        npm ci
+        npm run build
+
+    - name: Build Marketing Website
+      run: |
+        cd alfie_website
+        npm ci
+        npm run build
