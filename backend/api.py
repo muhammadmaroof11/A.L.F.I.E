@@ -20,6 +20,7 @@ from routes.super_admin_routes import router as super_admin_router
 from routes.client_routes import router as client_admin_router
 from routes.twilio_routes import router as twilio_router
 from routes.billing_routes import router as billing_router
+from routes.public_routes import router as public_router
 
 logger = logging.getLogger("alfie-api")
 # ... skipping to the router inclusions ...
@@ -182,6 +183,7 @@ app.include_router(client_admin_router)
 app.include_router(webchat_router)
 app.include_router(twilio_router)
 app.include_router(billing_router)
+app.include_router(public_router)
 
 
 @app.websocket("/api/super/telemetry/ws")

@@ -8,22 +8,22 @@ from livekit.agents import llm
 class ToolRegistry:
     """
     Manages the dynamic loading of tools based on tenant configurations.
-    Tools in LiveKit are classes inheriting from llm.FunctionContext.
+    Tools in LiveKit are classes inheriting from llm.Toolset.
     """
 
     def __init__(self):
-        self._available_tools: Dict[str, Type[llm.FunctionContext]] = {}
+        self._available_tools: Dict[str, Type[llm.Toolset]] = {}
 
-    def register(self, name: str, tool_class: Type[llm.FunctionContext]):
+    def register(self, name: str, tool_class: Type[llm.Toolset]):
         self._available_tools[name] = tool_class
         logging.info(f"Registered tool: {name}")
 
-    async def build_toolsets(self, enabled_tools: List[str], custom_tools: List[dict] = None, niche: str = "", **kwargs) -> List[llm.FunctionContext]:
+    async def build_toolsets(self, enabled_tools: List[str], custom_tools: List[dict] = None, niche: str = "", **kwargs) -> List[llm.Toolset]:
         """
         Builds a list of Toolsets containing only the tools
         enabled for this specific tenant/agent.
         """
-        toolsets: List[llm.FunctionContext] = []
+        toolsets: List[llm.Toolset] = []
         custom_tools = custom_tools or []
 
         for tool_name in enabled_tools:
@@ -75,15 +75,18 @@ class ToolRegistry:
 
     def _create_dynamic_tool_class(self, name: str, description: str, url: str, method: str, params: dict):
         """
-        Dynamically generates a Python class with an @llm.ai_callable method.
+        Dynamically generates a Python class with an @llm.function_tool method.
         """
-        # We define a generic ai_callable that accepts a generic JSON payload.
+        # We define a generic function_tool that accepts a generic JSON payload.
         # Since generating precise Pydantic models via exec can be fragile, 
         # we provide the description to the LLM and ask it to pass arguments.
         # In a fully strict setup, we would generate a Pydantic BaseModel dynamically.
         
-        class DynamicWebhookTool(llm.FunctionContext):
-            @llm.ai_callable(
+        class DynamicWebhookTool(llm.Toolset):
+            def __init__(self, **kwargs):
+                super().__init__(id=name)
+
+            @llm.function_tool(
                 name=name,
                 description=f"{description} (Expected params: {json.dumps(params)})"
             )
