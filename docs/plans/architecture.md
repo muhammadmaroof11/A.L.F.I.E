@@ -6,7 +6,7 @@
 
 ## 1. System Overview
 
-A.L.F.I.E (Autonomous LiveKit Framework for Intelligent Engagement) is a **multi-tenant, multi-niche** voice AI telephony platform. Each client (tenant) gets a fully configured, niche-specific voice agent — with its own phone number, system prompt, voice personality, and tool set — running on a shared platform core.
+A.L.F.I.E (Automated Listening and Fluency Intelligence Engine) is a **multi-tenant, multi-niche** voice AI telephony platform. Each client (tenant) gets a fully configured, niche-specific voice agent — with its own phone number, system prompt, voice personality, and tool set — running on a shared platform core.
 
 **Core Engine**: LiveKit Agents Python SDK (≥1.6)
 **Languages**: English, Urdu, Arabic (per-tenant configurable)
