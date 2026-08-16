@@ -23,3 +23,12 @@ This file specifies project-level rules that MUST be strictly followed by all AI
 - **Direct Answers:** `codegraph_explore` returns exact line-numbered source code, call dependencies, dynamic dispatch links, and blast-radius summaries in one call. Use it directly to answer code structure and flow questions.
 - **Index Staleness:** If a response contains a staleness warning ("⚠️ Some files referenced below were edited..."), read those specific pending files directly. If `.codegraph/` is present at the repo root, CodeGraph is active and authoritative for indexed files.
 
+---
+
+## Rule 4: Cross-Device Agent Sync (`.sync/` Folder)
+- **Sync Folder Location:** `.sync/` in the project root (committed to Git).
+- **Mandatory First Action:** At the start of ANY new session, the agent MUST read `.sync/HANDOFF.md` to understand what the previous agent (on any device) was doing, what's in progress, and what's next.
+- **Mandatory Last Action:** Before the user switches devices or ends a significant work session, update `.sync/HANDOFF.md` with current progress, blockers, and next steps.
+- **Task Tracking:** `.sync/TASKS.md` is the single source of truth for project progress. Update it as tasks are completed.
+- **Decision Log:** `.sync/DECISIONS.md` contains all resolved decisions. Never re-ask a question that's already answered there. Add new decisions as they are made.
+- **Device Routing:** Read `.sync/DEVICES.md` to understand hardware capabilities. Route GPU-heavy tasks (Blender, model generation) to the Office Desktop.
