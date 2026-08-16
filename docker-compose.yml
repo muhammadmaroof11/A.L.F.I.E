@@ -1,15 +1,28 @@
 services:
   alfie-agent:
-    build: .
+    build: ./backend
     restart: unless-stopped
     depends_on:
       - alfie-mongodb
       - postgres
     env_file:
-      - .env
+      - ./backend/.env
     environment:
       - MONGODB_URI=mongodb://alfie-mongodb:27017
       - MONGODB_DB_NAME=alfie_ai
+
+  alfie-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - ./backend/.env
 
   alfie-mongodb:
     image: mongo:8.0
@@ -39,14 +52,14 @@ services:
       - redis_data:/data
 
   alfie-worker:
-    build: .
+    build: ./backend
     command: arq worker.WorkerSettings
     restart: unless-stopped
     depends_on:
       - redis
       - postgres
     env_file:
-      - .env
+      - ./backend/.env
 
 volumes:
   mongodb_data:
