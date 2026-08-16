@@ -15,7 +15,9 @@ class ProvisioningError(Exception):
     pass
 
 
-async def create_tenant(name: str, niche: str, email: str, password: str, credit_limit_usd: float = 50.00) -> dict:
+async def create_tenant(
+    name: str, niche: str, email: str, password: str, credit_limit_usd: float = 50.00
+) -> dict:
     """
     Provisions a new tenant with email and password.
     Returns the raw API key (which should only be shown to the user ONCE)
@@ -35,7 +37,7 @@ async def create_tenant(name: str, niche: str, email: str, password: str, credit
 
     # Hash the secret for secure storage
     hashed_api_key = pwd_context.hash(raw_secret)
-    
+
     # Hash the password for login
     hashed_password = pwd_context.hash(password)
 
@@ -52,7 +54,7 @@ async def create_tenant(name: str, niche: str, email: str, password: str, credit
                 credit_limit_usd,
                 hashed_api_key,
                 email,
-                hashed_password
+                hashed_password,
             )
             logger.info(f"Successfully provisioned tenant {name} ({tenant_id})")
     except Exception as e:
@@ -97,9 +99,9 @@ async def verify_api_key(api_key: str) -> dict:
             # O(1) Lookup: Fetch exactly one tenant by ID
             record = await conn.fetchrow(
                 "SELECT tenant_id, name, niche, status, api_key_hash FROM alfie_tenants WHERE tenant_id = $1 AND status = 'active'",
-                uuid.UUID(tenant_id_str)
+                uuid.UUID(tenant_id_str),
             )
-            
+
             if record and pwd_context.verify(raw_secret, record["api_key_hash"]):
                 return dict(record)
     except ValueError:
@@ -122,10 +124,14 @@ async def verify_email_password(email: str, password: str) -> dict:
         async with _pool.acquire() as conn:
             record = await conn.fetchrow(
                 "SELECT tenant_id, name, niche, status, password_hash FROM alfie_tenants WHERE email = $1 AND status = 'active'",
-                email
+                email,
             )
-            
-            if record and record["password_hash"] and pwd_context.verify(password, record["password_hash"]):
+
+            if (
+                record
+                and record["password_hash"]
+                and pwd_context.verify(password, record["password_hash"])
+            ):
                 return dict(record)
     except Exception as e:
         logger.error(f"Error verifying email/password: {e}")

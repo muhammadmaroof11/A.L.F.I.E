@@ -2,6 +2,7 @@ import asyncio
 import asyncpg
 from config import settings
 
+
 async def main():
     print("Connecting to DB...")
     conn = await asyncpg.connect(settings.telemetry_db_dsn)
@@ -19,6 +20,7 @@ async def main():
             print(f"Error: {e}")
     finally:
         await conn.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -7,7 +7,9 @@ from config import settings
 
 SECRET_KEY = settings.jwt_secret_key
 if not SECRET_KEY:
-    raise RuntimeError("CRITICAL SECURITY ERROR: JWT_SECRET_KEY environment variable is missing. Refusing to start.")
+    raise RuntimeError(
+        "CRITICAL SECURITY ERROR: JWT_SECRET_KEY environment variable is missing. Refusing to start."
+    )
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
@@ -41,7 +43,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization:
         # Fallback or dev mode check if token is passed without Bearer prefix
         raise HTTPException(status_code=401, detail="Authorization header missing")
-    
+
     token = authorization.replace("Bearer ", "").strip()
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

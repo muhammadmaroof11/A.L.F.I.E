@@ -35,8 +35,8 @@ async def list_demo_personas():
             "sample_prompts": [
                 "What can you do for my business?",
                 "Can you speak in Urdu or Arabic?",
-                "How do you handle customer call transfers?"
-            ]
+                "How do you handle customer call transfers?",
+            ],
         },
         {
             "id": "real_estate",
@@ -45,8 +45,8 @@ async def list_demo_personas():
             "description": "Qualifies buyers by budget and location, answers property questions, and books site viewings.",
             "sample_prompts": [
                 "I am looking for a 3-bedroom villa in Dubai under 2 million.",
-                "Can I schedule a viewing this Saturday?"
-            ]
+                "Can I schedule a viewing this Saturday?",
+            ],
         },
         {
             "id": "car_rental",
@@ -55,8 +55,8 @@ async def list_demo_personas():
             "description": "Checks fleet inventory in real-time, calculates deposits, and takes rental reservations.",
             "sample_prompts": [
                 "Do you have a Range Rover or Escalade available tomorrow?",
-                "What are your deposit and insurance terms?"
-            ]
+                "What are your deposit and insurance terms?",
+            ],
         },
         {
             "id": "medical_reception",
@@ -65,8 +65,8 @@ async def list_demo_personas():
             "description": "Screens patient symptoms, checks accepted insurance networks, and books doctor appointments.",
             "sample_prompts": [
                 "Do you accept Delta Dental insurance?",
-                "I need to book a consultation with Dr. Smith."
-            ]
+                "I need to book a consultation with Dr. Smith.",
+            ],
         },
         {
             "id": "legal_intake",
@@ -75,9 +75,9 @@ async def list_demo_personas():
             "description": "Gathers accident facts, screens liability, and escalates qualified claims to the managing attorney.",
             "sample_prompts": [
                 "I was in a car accident yesterday and need legal help.",
-                "Is an attorney available to speak with me?"
-            ]
-        }
+                "Is an attorney available to speak with me?",
+            ],
+        },
     ]
 
 
@@ -96,32 +96,40 @@ async def generate_demo_token(req: DemoTokenRequest):
             "url": settings.livekit_url,
             "room_name": room_id,
             "identity": participant_identity,
-            "niche": req.niche
+            "niche": req.niche,
         }
 
     try:
         from livekit import api as livekit_api
-        token = livekit_api.AccessToken(settings.livekit_api_key, settings.livekit_api_secret) \
-            .with_identity(participant_identity) \
-            .with_name(req.visitor_name or "Demo Prospect") \
-            .with_grants(livekit_api.VideoGrants(
-                room_join=True,
-                room=room_id,
-                can_publish=True,
-                can_subscribe=True
-            )) \
-            .with_metadata(json.dumps({
-                "tenant_id": "demo-tenant",
-                "niche": req.niche or "demo",
-                "is_public_demo": True
-            }))
+
+        token = (
+            livekit_api.AccessToken(
+                settings.livekit_api_key, settings.livekit_api_secret
+            )
+            .with_identity(participant_identity)
+            .with_name(req.visitor_name or "Demo Prospect")
+            .with_grants(
+                livekit_api.VideoGrants(
+                    room_join=True, room=room_id, can_publish=True, can_subscribe=True
+                )
+            )
+            .with_metadata(
+                json.dumps(
+                    {
+                        "tenant_id": "demo-tenant",
+                        "niche": req.niche or "demo",
+                        "is_public_demo": True,
+                    }
+                )
+            )
+        )
 
         return {
             "token": token.to_jwt(),
             "url": settings.livekit_url,
             "room_name": room_id,
             "identity": participant_identity,
-            "niche": req.niche
+            "niche": req.niche,
         }
     except Exception as e:
         logger.error(f"Error generating demo token: {e}")
@@ -130,7 +138,7 @@ async def generate_demo_token(req: DemoTokenRequest):
             "url": settings.livekit_url,
             "room_name": room_id,
             "identity": participant_identity,
-            "niche": req.niche
+            "niche": req.niche,
         }
 
 
@@ -157,18 +165,26 @@ async def request_demo_callback(req: DemoCallbackRequest):
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
-                await conn.execute("""
+                await conn.execute(
+                    """
                     INSERT INTO alfie_demo_leads (name, phone, niche, company_name)
                     VALUES ($1, $2, $3, $4)
-                """, req.visitor_name, req.phone_number, req.niche, req.company_name)
+                """,
+                    req.visitor_name,
+                    req.phone_number,
+                    req.niche,
+                    req.company_name,
+                )
         except Exception as e:
             logger.warning(f"Failed to record demo lead in DB: {e}")
 
-    logger.info(f"[DEMO CALLBACK] Prospect requested live call to: {req.phone_number} (Niche: {req.niche})")
+    logger.info(
+        f"[DEMO CALLBACK] Prospect requested live call to: {req.phone_number} (Niche: {req.niche})"
+    )
 
     return {
         "status": "success",
         "message": f"Demo call queued for {req.phone_number}. A.L.F.I.E will call you within a few seconds!",
         "phone_number": req.phone_number,
-        "niche": req.niche
+        "niche": req.niche,
     }

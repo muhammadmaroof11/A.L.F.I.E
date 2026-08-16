@@ -11,7 +11,10 @@ SUPER_ADMIN_EMAIL = settings.super_admin_email
 SUPER_ADMIN_PASSWORD = settings.super_admin_password
 
 if not SUPER_ADMIN_EMAIL or not SUPER_ADMIN_PASSWORD:
-    raise RuntimeError("CRITICAL SECURITY ERROR: SUPER_ADMIN_EMAIL or SUPER_ADMIN_PASSWORD environment variables are missing. Refusing to start.")
+    raise RuntimeError(
+        "CRITICAL SECURITY ERROR: SUPER_ADMIN_EMAIL or SUPER_ADMIN_PASSWORD environment variables are missing. Refusing to start."
+    )
+
 
 @router.post("/login", response_model=Token)
 async def login(req: LoginRequest):

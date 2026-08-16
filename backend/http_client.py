@@ -11,9 +11,11 @@ global_http_client = httpx.AsyncClient(
     limits=httpx.Limits(max_keepalive_connections=50, max_connections=200),
 )
 
+
 def get_http_client() -> httpx.AsyncClient:
     """Returns the global HTTP client instance."""
     return global_http_client
+
 
 async def close_http_client():
     """Closes the global HTTP client gracefully."""

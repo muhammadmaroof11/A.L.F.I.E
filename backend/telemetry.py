@@ -41,12 +41,14 @@ async def init_telemetry_pool():
                 f"Failed to initialize telemetry pool: {e}. Telemetry will fall back to stdout only."
             )
 
+
 try:
     import redis.asyncio as redis
 except ImportError:
     redis = None
 
 _redis_pool = None
+
 
 async def init_redis_pool():
     """
@@ -59,6 +61,7 @@ async def init_redis_pool():
             logger.info("Redis pool initialized successfully.")
         except Exception as e:
             logger.error(f"Failed to initialize Redis pool: {e}")
+
 
 async def get_redis():
     return _redis_pool
@@ -121,7 +124,7 @@ async def init_db_schema():
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
             """)
-            
+
             # Ensure the column exists if the table was already created
             await conn.execute("""
                 ALTER TABLE alfie_usage ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT FALSE;
@@ -388,4 +391,3 @@ class TelemetryLogger:
         )
         if _broadcast_callback:
             await _broadcast_callback(payload)
-

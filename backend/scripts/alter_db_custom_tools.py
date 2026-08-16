@@ -2,16 +2,20 @@ import asyncio
 import asyncpg
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from config import settings
+
 
 async def migrate_db():
     print("Connecting to DB...")
     conn = await asyncpg.connect(settings.telemetry_db_dsn)
-    
+
     print("Adding custom_tools column to alfie_tenant_agents...")
     try:
-        await conn.execute("ALTER TABLE alfie_tenant_agents ADD COLUMN custom_tools JSONB DEFAULT '[]'::jsonb")
+        await conn.execute(
+            "ALTER TABLE alfie_tenant_agents ADD COLUMN custom_tools JSONB DEFAULT '[]'::jsonb"
+        )
     except asyncpg.exceptions.DuplicateColumnError:
         print("Column custom_tools already exists.")
 
@@ -44,9 +48,10 @@ async def migrate_db():
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         )
     """)
-    
+
     print("Migration complete.")
     await conn.close()
+
 
 if __name__ == "__main__":
     asyncio.run(migrate_db())

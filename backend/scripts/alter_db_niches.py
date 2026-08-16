@@ -7,10 +7,11 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 
+
 async def alter_db():
     print(f"Connecting to Postgres at {settings.telemetry_db_dsn}...")
     conn = await asyncpg.connect(settings.telemetry_db_dsn)
-    
+
     try:
         print("Creating Legal Niche tables...")
         await conn.execute("""
@@ -36,7 +37,7 @@ async def alter_db():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         print("Creating Medical Niche tables...")
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS alfie_accepted_insurance (
@@ -60,7 +61,7 @@ async def alter_db():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         print("Creating Hospitality Niche tables...")
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS alfie_restaurant_inventory (
@@ -83,13 +84,14 @@ async def alter_db():
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        
+
         print("Database schema successfully updated with new niches!")
-        
+
     except Exception as e:
         print(f"Error executing migration: {e}")
     finally:
         await conn.close()
+
 
 if __name__ == "__main__":
     asyncio.run(alter_db())

@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(default="")
     super_admin_email: str = Field(default="")
     super_admin_password: str = Field(default="")
-    
+
     # Billing & Telephony Fallbacks
     stripe_secret_key: str = Field(default="")
     stripe_webhook_secret: str = Field(default="")
