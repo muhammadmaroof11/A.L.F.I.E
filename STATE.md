@@ -11,36 +11,39 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 
 ### Core Stack:
 - **Voice Telephony Engine:** LiveKit WebRTC & SIP Trunking
-- **STT (Speech-To-Text):** Deepgram Nova 2 Streaming
+- **STT (Speech-To-Text):** Deepgram Nova 2 / Nova 3 Streaming
 - **LLM (Language Model):** OpenRouter Unified Gateway (Llama 3.3 70B, Llama 3.1 8B, Claude 3.5 Sonnet, GPT-4o, Qwen 2.5 72B)
 - **TTS (Text-To-Speech):** Fish Audio Engine (with live Discover API & custom Voice ID support)
-- **Backend API:** FastAPI (`api.py`) with PostgreSQL 15 (`telemetry.py`) and MongoDB 8.0
+- **Backend API:** FastAPI (`backend/api.py`) with PostgreSQL 15 (`backend/telemetry.py`), Redis 7, and MongoDB 8.0
 - **Super Admin Portal:** Vue.js 3 (`super_admin_ui`, Port 5173)
 - **Client Admin Portal:** Vue.js 3 (`client_admin_ui`, Port 5174)
+- **Marketing & Public Demo Website:** React 19 + Tailwind v4 (`alfie_website`, Port 5175)
+
+### Repository Root Structure:
+1. `backend/`: AI voice workers, FastAPI backend, ARQ queue, database schemas, prompt registries, tools, and Dockerfiles.
+2. `docs/`: System blueprints, architecture guides, phone number & SIP trunking guides, and marketing assets.
+3. `client_admin_ui/`: Tenant self-service admin portal.
+4. `super_admin_ui/`: SaaS platform super administration portal.
+5. `alfie_website/`: Public marketing website with interactive in-browser WebRTC Voice AI demo and callback tool.
 
 ---
 
 ## 2. Component State Matrix
 
-### A. Backend API & Engine (`api.py`, `telemetry.py`, `provisioning.py`, `agent.py`)
-- **Schema (`telemetry.py`):**
-  - `alfie_tenants`: `tenant_id`, `name`, `niche`, `status`, `credit_limit_usd`, `email`, `password_hash`, `tenant_config` (JSONB).
-  - `alfie_personas`: `id`, `niche_name`, `system_prompt`, `voice_id`, `example_conversation`. (Auto-seeded with `real_estate` and `car_rental`).
-  - `alfie_global_config`: `key`, `value` (JSONB).
-  - `alfie_phone_numbers`: `id`, `phone_number`, `tenant_id`, `niche`, `provider`.
-  - `alfie_custom_tools`: `id`, `tool_name`, `description`, `webhook_url`, `http_method`, `parameters_json`.
-  - `alfie_call_recordings`: `call_id`, `tenant_id`, `niche`, `caller_number`, `duration_seconds`, `transcript`, `sentiment`, `quality_score`, `stt_ms`, `llm_ttft_ms`, `tts_ms`, `total_ms`, `recording_url`.
-  - `alfie_rate_cards`: `id`, `tier_name`, `stt_rate_per_min`, `llm_rate_per_1k_tokens`, `tts_rate_per_min`, `markup_multiplier`.
+### A. Backend API & Engine (`backend/`)
+- **Schema (`backend/telemetry.py`):**
+  - `alfie_tenants`, `alfie_personas` (seeded with `real_estate`, `car_rental`, and `demo`), `alfie_global_config`, `alfie_phone_numbers`, `alfie_custom_tools`, `alfie_call_recordings`, `alfie_rate_cards`, `alfie_demo_leads`.
   - **Niche Specific Tables:**
     - `alfie_legal_leads`, `alfie_legal_cases`
     - `alfie_accepted_insurance`, `alfie_medical_appointments`
     - `alfie_restaurant_inventory`, `alfie_restaurant_reservations`
-- **Endpoints (`api.py`):**
+- **Endpoints (`backend/api.py` & `backend/routes/`):**
+  - Public Demo: `GET /api/public/demo/personas`, `POST /api/public/demo/token`, `POST /api/public/demo/callback`
   - Auth: `POST /api/auth/login`
   - Tenant Admin: `GET /api/super/tenants`, `POST /api/super/provision`, `PATCH /api/super/tenants/{id}`, `GET/PUT /api/super/tenants/{id}/config`
   - Personas: `GET /api/super/personas`, `POST /api/super/personas`, `PUT /api/super/personas/{id}`, `DELETE /api/super/personas/{id}`
   - Fish Audio Discovery: `GET /api/super/fish-audio/voices`
-  - WebRTC Simulator Token: `POST /api/super/livekit/token`
+  - WebRTC Simulator Token: `POST /api/super/livekit/token`, `POST /api/super/web-call-token`
   - Call Audit & QA: `GET /api/super/calls`
   - Webhook Tools: `GET/POST/DELETE /api/super/tools`
   - Phone Numbers (SIP): `GET/POST/DELETE /api/super/phone-numbers`
@@ -145,6 +148,7 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 | Redis High-Speed Architecture | ✅ Synced (PubSub/Rate Limit) | N/A | N/A | ✅ Synced (TTFT Cache) | **Fully Synced** |
 | ARQ Background Workers | ✅ Synced (`worker.py`) | N/A | N/A | ✅ Synced (Enqueue) | **Fully Synced** |
 | Advanced Observability Pipeline | ✅ Synced (`telemetry.py`) | ✅ Synced (Metrics Display) | N/A | ✅ Synced (Tracking) | **Fully Synced** |
+| Niche Avatar Suites & Live Demo Arena | ✅ Synced (`public_routes.py`) | ✅ Synced (Simulator) | ✅ Synced (Widget) | ✅ Synced (`demo.py`) | **Fully Synced** |
 
 
 ---
@@ -152,8 +156,9 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 ## 4. Pending Synchronization Action Items
 
 🎉 **A.L.F.I.E MVP Architecture is 100% Complete!** 
-The platform now features a highly scalable backend with ARQ Background Workers for offloading tasks, precise Observability tracked in the database, and beautifully restyled Super Admin and Client Admin UIs using the "Obsidian & Neon" Dual-Theme Glassmorphism engine.
+The platform now features a highly scalable backend with ARQ Background Workers for offloading tasks, precise Observability tracked in the database, 10 photorealistic niche avatar personas across 5 major verticals (Law, Real Estate, Fleet, Clinics, Hospitality), and an ElevenLabs-style 90-second interactive live demo test arena on the marketing website.
 
-**Next Steps**:
+**Next Steps & Documentation**:
+- Comprehensive platform architecture, tooling, and connectivity guide documented in [`docs/stack.md`](file:///d:/Projects/A.L.F.I.E/docs/stack.md).
+- Dedicated US Phone Number & Cold Call Live Transfer Guide documented in [`docs/phone_number_and_sip_guide.md`](file:///d:/Projects/A.L.F.I.E/docs/phone_number_and_sip_guide.md).
 - The Super Admin and Client Admin portals have been fully polished and are production-ready.
-- Consider deploying the infrastructure to a production VPS as the next major milestone.
