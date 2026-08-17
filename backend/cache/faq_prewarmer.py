@@ -133,3 +133,70 @@ async def prewarm_niche_faqs(tenant_id: str = "demo-tenant", niche: str = "demo"
     logger.info(
         f"Pre-warmed {count} semantic FAQ responses for niche: '{niche}' (Tenant: {tenant_id})"
     )
+
+
+async def prewarm_tenant_specific(tenant_id: str, niche: str, tenant_config: dict):
+    """
+    Pre-warm cache with tenant-specific business details extracted from config.
+    Called when a tenant is first provisioned or updates their config.
+    """
+    if not tenant_config:
+        return
+
+    business_name = (
+        tenant_config.get("business_name") or tenant_config.get("name") or "our office"
+    )
+    office_hours = tenant_config.get("office_hours", "")
+    address = tenant_config.get("address", "")
+    phone = tenant_config.get("business_phone") or tenant_config.get("phone", "")
+    services = tenant_config.get("services_description") or tenant_config.get(
+        "services", ""
+    )
+
+    tenant_faqs = []
+
+    if office_hours:
+        tenant_faqs.append(
+            (
+                f"What are {business_name}'s office hours?",
+                f"{business_name} is open {office_hours}.",
+            )
+        )
+        tenant_faqs.append(
+            (
+                "When are you open?",
+                f"We are open {office_hours}. Would you like to schedule a visit?",
+            )
+        )
+
+    if address:
+        tenant_faqs.append(
+            (
+                f"Where is {business_name} located?",
+                f"We are located at {address}. Would you like directions?",
+            )
+        )
+        tenant_faqs.append(("What is your address?", f"Our address is {address}."))
+
+    if phone:
+        tenant_faqs.append(
+            ("What is your phone number?", f"You can reach us at {phone}.")
+        )
+
+    if services:
+        tenant_faqs.append(("What services do you offer?", f"{services}"))
+
+    count = 0
+    for prompt, response in tenant_faqs:
+        await store_semantic_cache(
+            prompt=prompt,
+            response=response,
+            tenant_id=tenant_id,
+            niche=niche,
+        )
+        count += 1
+
+    if count > 0:
+        logger.info(
+            f"Pre-warmed {count} tenant-specific FAQs for '{business_name}' (Tenant: {tenant_id})"
+        )

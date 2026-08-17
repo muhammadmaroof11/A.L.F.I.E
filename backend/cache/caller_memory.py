@@ -53,9 +53,6 @@ async def update_caller_memory(
         clean_phone = phone.replace(" ", "").replace("-", "")
         key = f"caller:{tenant_id}:{clean_phone}"
 
-        # Increment call counter
-        await redis_client.hincrby(key, "call_count", 1)
-
         updates: Dict[str, str] = {
             "last_call": datetime.now(timezone.utc).isoformat(),
         }
@@ -79,8 +76,12 @@ async def update_caller_memory(
         if preferences:
             updates["preferences"] = json.dumps(preferences)
 
-        await redis_client.hset(key, mapping=updates)
-        await redis_client.expire(key, CALLER_MEMORY_TTL)
+        # Batch hincrby, hset, and expire into a single pipeline round-trip
+        pipe = redis_client.pipeline()
+        pipe.hincrby(key, "call_count", 1)
+        pipe.hset(key, mapping=updates)
+        pipe.expire(key, CALLER_MEMORY_TTL)
+        await pipe.execute()
 
         logger.info(f"Updated persistent caller memory for phone {clean_phone}")
     except Exception as e:
