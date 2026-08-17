@@ -1,10 +1,12 @@
 name: A.L.F.I.E CI Pipeline
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  # Automated push/PR triggers temporarily disabled per user request
+  # push:
+  #   branches: [ "main" ]
+  # pull_request:
+  #   branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   lint:
