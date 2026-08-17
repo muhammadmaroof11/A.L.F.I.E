@@ -19,3 +19,5 @@ passlib[bcrypt]>=1.7.4
 PyJWT>=2.8.0
 async-lru>=2.0.4
 stripe>=10.12.0
+redisvl>=0.3.0
+sentence-transformers>=2.2.0

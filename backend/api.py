@@ -61,7 +61,21 @@ manager = ConnectionManager()
 async def publish_to_redis(message: dict):
     redis_client = await get_redis()
     if redis_client:
-        await redis_client.publish("telemetry_events", json.dumps(message))
+        try:
+            # 1. Durable append to Redis Stream
+            await redis_client.xadd(
+                "telemetry_stream",
+                {
+                    "payload": json.dumps(message),
+                    "event": str(message.get("event", "telemetry")),
+                },
+                maxlen=10000,
+            )
+            # 2. Real-time PubSub broadcast for instantaneous UI rendering
+            await redis_client.publish("telemetry_events", json.dumps(message))
+        except Exception as e:
+            logger.warning(f"Failed to publish telemetry to Redis stream: {e}")
+            await manager.broadcast_local(message)
     else:
         await manager.broadcast_local(message)
 

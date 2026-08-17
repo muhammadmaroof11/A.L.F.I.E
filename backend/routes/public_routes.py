@@ -2,10 +2,11 @@ import json
 import uuid
 import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from config import settings
-from telemetry import _pool
+from telemetry import _pool, get_redis
+from cache import check_demo_rate_limit
 
 logger = logging.getLogger("alfie-public-demo")
 router = APIRouter(prefix="/api/public/demo", tags=["Public Live Demo"])
@@ -82,11 +83,20 @@ async def list_demo_personas():
 
 
 @router.post("/token")
-async def generate_demo_token(req: DemoTokenRequest):
+async def generate_demo_token(req: DemoTokenRequest, request: Request):
     """
     Generates a public WebRTC token allowing website visitors to speak directly
     with A.L.F.I.E through their browser microphone with zero authentication barriers.
     """
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    redis_client = await get_redis()
+    allowed = await check_demo_rate_limit(redis_client, client_ip, limit=5)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily demo limit reached for this device. Please schedule a full consultation or try again tomorrow!",
+        )
+
     room_id = f"demo-call-{uuid.uuid4().hex[:8]}"
     participant_identity = f"visitor-{uuid.uuid4().hex[:6]}"
 
@@ -143,12 +153,21 @@ async def generate_demo_token(req: DemoTokenRequest):
 
 
 @router.post("/callback")
-async def request_demo_callback(req: DemoCallbackRequest):
+async def request_demo_callback(req: DemoCallbackRequest, request: Request):
     """
     Registers a prospect's phone number and triggers an instant automated demo call.
     """
     if not req.phone_number:
         raise HTTPException(status_code=400, detail="Phone number is required")
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    redis_client = await get_redis()
+    allowed = await check_demo_rate_limit(redis_client, client_ip, limit=5)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily demo callback limit reached for this device.",
+        )
 
     # Store lead in database if pool is ready
     if _pool:

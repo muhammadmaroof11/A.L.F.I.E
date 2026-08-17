@@ -65,18 +65,31 @@ async def generate_call_summary(ctx, call_id: str, tenant_id: str, transcript: l
     except Exception as e:
         logger.error(f"LLM summary generation failed: {e}")
 
-    # Normally we'd update the database here.
+    # Update database and enrich caller memory
     if _pool:
         try:
             async with _pool.acquire() as conn:
-                await conn.execute(
-                    "UPDATE alfie_call_recordings SET sentiment = 'positive', quality_score = $1, transcript = $2 WHERE call_id = $3",
+                row = await conn.fetchrow(
+                    "UPDATE alfie_call_recordings SET sentiment = 'positive', quality_score = $1, transcript = $2 WHERE call_id = $3 RETURNING caller_number",
                     int(intent_score * 10),
                     json.dumps(transcript),
                     call_id,
                 )
+                if row and row["caller_number"]:
+                    from telemetry import get_redis
+                    from cache import update_caller_memory
+
+                    redis_client = await get_redis()
+                    if redis_client:
+                        await update_caller_memory(
+                            redis_client,
+                            tenant_id=tenant_id,
+                            phone=row["caller_number"],
+                            notes=summary,
+                            intent_score=intent_score,
+                        )
         except Exception as e:
-            logger.error(f"Failed to update summary in DB: {e}")
+            logger.error(f"Failed to update summary in DB or caller memory: {e}")
 
     return {"summary": summary, "transcript": transcript}
 

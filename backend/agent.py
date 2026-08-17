@@ -23,6 +23,19 @@ from crm_client import crm
 from telemetry import init_telemetry_pool, init_redis_pool, get_redis, TelemetryLogger
 from arq import create_pool
 from arq.connections import RedisSettings
+from cache import (
+    init_semantic_cache,
+    check_semantic_cache,
+    store_semantic_cache,
+    get_caller_context,
+    update_caller_memory,
+    build_memory_prompt,
+    prewarm_niche_faqs,
+    get_tenant_flags,
+    is_feature_enabled,
+    get_transfer_context,
+    CachedOpenAILLM,
+)
 
 # Register available tools
 registry.register("core_tools", CoreTools)
@@ -42,15 +55,19 @@ arq_pool = None
 async def prewarm(proc):
     """
     Runs once when the worker process starts — before any calls come in.
-    Ideal for warming up long-lived connections like the telemetry DB pool.
+    Warms up DB pool, Redis connection, semantic vector cache, and FAQ knowledge bases.
     """
     global arq_pool
     logger.info(
-        "Prewarming agent worker: initializing telemetry, redis, and arq pools..."
+        "Prewarming agent worker: initializing telemetry, redis, arq, and semantic cache..."
     )
     await init_telemetry_pool()
     await init_redis_pool()
     arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_dsn))
+
+    # Initialize Semantic LLM Cache and pre-warm niche FAQs in the background
+    asyncio.create_task(init_semantic_cache(settings.redis_dsn))
+    asyncio.create_task(prewarm_niche_faqs("demo-tenant", "demo"))
 
 
 async def entrypoint(ctx: JobContext):
@@ -204,10 +221,42 @@ async def entrypoint(ctx: JobContext):
     raw_system_prompt = f"{BASE_SYSTEM_PROMPT}\n\n{niche_prompt}\n\n{config_data.get('system_prompt', '')}"
 
     # Check for preceding WebChat context by caller_phone or session_id
-    caller_phone = metadata.get("caller_phone") or metadata.get("phone")
+    caller_phone = (
+        metadata.get("caller_phone")
+        or metadata.get("phone")
+        or metadata.get("caller_number")
+    )
     chat_session_id = metadata.get("session_id")
     chat_history_summary = ""
     other_agents_summary = ""
+
+    # Check tenant feature flags and caller memory from Redis
+    cache_enabled = True
+    if redis_client:
+        try:
+            cache_enabled = await is_feature_enabled(
+                redis_client, tenant_id, "semantic_cache_enabled", default=True
+            )
+            # 1. Caller Memory Injection
+            if caller_phone:
+                caller_data = await get_caller_context(
+                    redis_client, tenant_id, caller_phone
+                )
+                if caller_data:
+                    memory_prompt = build_memory_prompt(caller_data)
+                    raw_system_prompt += f"\n\n{memory_prompt}"
+
+            # 2. Call Transfer Context Handoff
+            transfer_data = await get_transfer_context(redis_client, ctx.room.name)
+            if transfer_data:
+                raw_system_prompt += (
+                    f"\n\n=== WARM CALL TRANSFER CONTEXT ===\n"
+                    f"The caller was just transferred to you. Prior summary:\n"
+                    f"{transfer_data.get('transcript_summary', '')}\n"
+                    f"Acknowledge the handoff smoothly and address their need immediately."
+                )
+        except Exception as e:
+            logger.warning(f"Error reading Redis context in agent: {e}")
 
     from telemetry import _pool
 
@@ -318,7 +367,10 @@ async def entrypoint(ctx: JobContext):
         api_key=settings.deepgram_api_key,
     )
 
-    llm_plugin = openai.LLM(
+    llm_plugin = CachedOpenAILLM(
+        tenant_id=tenant_id,
+        niche=niche or "general",
+        cache_enabled=cache_enabled,
         model=config_data["llm_config"]["model"],
         temperature=config_data["llm_config"]["temperature"],
         max_tokens=config_data["llm_config"]["max_tokens"],
@@ -379,7 +431,12 @@ async def entrypoint(ctx: JobContext):
         duration = int(asyncio.get_event_loop().time() - call_start_time)
         asyncio.create_task(
             post_call_processing(
-                agent.chat_ctx, tenant_id, ctx.room.name, duration, interruption_count
+                agent.chat_ctx,
+                tenant_id,
+                ctx.room.name,
+                duration,
+                interruption_count,
+                caller_phone=caller_phone,
             )
         )
 
@@ -390,6 +447,7 @@ async def post_call_processing(
     room_name: str,
     duration_seconds: int,
     interruption_count: int,
+    caller_phone: Optional[str] = None,
 ):
     """Runs after a call ends: fetch recording URL, log billing, and enqueue background tasks."""
     global arq_pool  # noqa: F824 — assigned in prewarm()
@@ -400,6 +458,19 @@ async def post_call_processing(
         for m in chat_ctx.messages
         if m.role in ["user", "assistant"]
     ]
+
+    # Update caller memory in Redis for future relationship grounding
+    redis_client = await get_redis()
+    if redis_client and caller_phone:
+        try:
+            await update_caller_memory(
+                redis_client,
+                tenant_id=tenant_id,
+                phone=caller_phone,
+                notes=f"Completed call ({duration_seconds}s)",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to update caller memory post-call: {e}")
 
     # 2. Estimate tokens and calculate cost (precise token tracking would require tokenizer)
     total_tokens = int(sum(len(m["content"].split()) * 1.3 for m in messages))
