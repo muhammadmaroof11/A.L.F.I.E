@@ -265,6 +265,17 @@ async def update_tenant_custom_config(
             json.dumps(existing_cfg),
             uuid.UUID(tenant_id),
         )
+
+        from telemetry import get_redis
+        from cache import invalidate_tenant_config, prewarm_tenant_specific
+
+        redis_client = await get_redis()
+        if redis_client:
+            await invalidate_tenant_config(redis_client, tenant_id)
+            asyncio.create_task(
+                prewarm_tenant_specific(tenant_id, "general", existing_cfg)
+            )
+
         return existing_cfg
 
 
@@ -495,12 +506,13 @@ async def update_agent(agent_id: str, req: AgentUpdateRequest):
         if not row:
             raise HTTPException(status_code=404, detail="Agent not found")
 
-        # Clear redis cache for this agent
+        # Clear redis cache and compressed prompts for this agent
         from telemetry import get_redis
+        from cache import invalidate_tenant_config
 
         redis = await get_redis()
         if redis:
-            await redis.delete(f"tenant_config:{agent_id}")
+            await invalidate_tenant_config(redis, tenant_id, agent_id)
 
         d = dict(row)
         d["agent_id"] = str(d["agent_id"])

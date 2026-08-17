@@ -327,6 +327,15 @@ async def update_client_config(
         if res == "UPDATE 0":
             raise HTTPException(status_code=404, detail="Tenant not found")
 
+        from telemetry import get_redis
+        from cache import invalidate_tenant_config, prewarm_tenant_specific
+        import asyncio
+
+        redis_client = await get_redis()
+        if redis_client:
+            await invalidate_tenant_config(redis_client, tenant_id)
+            asyncio.create_task(prewarm_tenant_specific(tenant_id, "general", payload))
+
         return {"status": "success", "tenant_config": payload}
 
 
@@ -516,12 +525,13 @@ async def update_client_agent(
         """
         row = await conn.fetchrow(query, *params)
 
-        # Clear redis cache for this agent
+        # Clear redis cache and compressed prompts for this agent
         from telemetry import get_redis
+        from cache import invalidate_tenant_config
 
         redis = await get_redis()
         if redis:
-            await redis.delete(f"tenant_config:{agent_id}")
+            await invalidate_tenant_config(redis, tenant_id, agent_id)
 
         d = dict(row)
         d["agent_id"] = str(d["agent_id"])
