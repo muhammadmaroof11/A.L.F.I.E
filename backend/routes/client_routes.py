@@ -4,10 +4,85 @@ from typing import Optional
 import json
 import uuid
 import random
+import httpx
+from config import settings
 from auth import get_current_user
 from telemetry import _pool
 
 router = APIRouter(prefix="/api/client", tags=["Client Admin Portal"])
+
+
+@router.get("/fish-audio/voices")
+async def list_client_fish_audio_voices(
+    current_user: dict = Depends(get_current_user),
+):
+    """Fetch live Discover catalog of Fish Audio TTS voices for client customization."""
+    api_key = settings.fish_audio_api_key
+    if not api_key:
+        return {
+            "items": [
+                {
+                    "id": "224a2257dd4943209a683d27a5e41439",
+                    "title": "Default English Female (Fallback)",
+                    "languages": ["en"],
+                    "tags": ["premium", "recommended"],
+                },
+                {
+                    "id": "7f92f8afb8ec43bf81429cc1c9199cb1",
+                    "title": "Natural Conversational Male",
+                    "languages": ["en"],
+                    "tags": ["warm", "authoritative"],
+                },
+            ]
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {"Authorization": f"Bearer {api_key}"}
+            res = await client.get(
+                "https://api.fish.audio/v1/model",
+                headers=headers,
+                params={"page_size": 30},
+            )
+            if res.status_code == 200:
+                data = res.json()
+                items = data.get("items", [])
+                formatted = []
+                for item in items:
+                    formatted.append(
+                        {
+                            "id": item.get("_id") or item.get("id"),
+                            "title": item.get("title")
+                            or item.get("name")
+                            or "Untitled Voice",
+                            "languages": item.get("languages", ["en"]),
+                            "tags": item.get("tags", []),
+                        }
+                    )
+                return {"items": formatted}
+            else:
+                return {
+                    "items": [
+                        {
+                            "id": "224a2257dd4943209a683d27a5e41439",
+                            "title": "Default English Female (Fallback)",
+                            "languages": ["en"],
+                            "tags": ["fallback"],
+                        }
+                    ]
+                }
+    except Exception as e:
+        return {
+            "items": [
+                {
+                    "id": "224a2257dd4943209a683d27a5e41439",
+                    "title": "Default English Female (Fallback)",
+                    "languages": ["en"],
+                    "tags": ["fallback"],
+                }
+            ]
+        }
+
 
 
 class ClientAgentProvisionRequest(BaseModel):

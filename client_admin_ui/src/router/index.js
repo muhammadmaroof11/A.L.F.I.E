@@ -29,6 +29,11 @@ const routes = [
         component: () => import('../views/InteractionHistory.vue')
       },
       {
+        path: 'callbacks',
+        name: 'Callback Queue',
+        component: () => import('../views/CallbacksQueue.vue')
+      },
+      {
         path: 'analytics',
         name: 'Analytics',
         component: () => import('../views/Analytics.vue')

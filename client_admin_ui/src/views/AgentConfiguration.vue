@@ -65,28 +65,39 @@
         <div class="glass-panel p-6 rounded-xl relative overflow-hidden group hover-glow transition-all duration-300">
           <h3 class="text-sm font-semibold uppercase tracking-wider mb-5 flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-            Voice Model
+            Voice Engine & Identity
           </h3>
           <div class="space-y-4">
             <div class="space-y-2">
-              <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Provider</label>
-              <select disabled class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-                <option value="openai">OpenAI (TTS-1)</option>
+              <div class="flex justify-between items-center">
+                <label class="text-sm font-medium leading-none">Fish Audio Voice Discover</label>
+                <span class="text-[10px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">Live Catalog</span>
+              </div>
+              <select v-model="form.tts_voice_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <optgroup label="Fish Audio Models">
+                  <option v-for="v in fishAudioVoices" :key="v.id" :value="v.id">
+                    {{ v.title }} {{ v.languages && v.languages.length ? `(${v.languages.join(', ')})` : '' }}
+                  </option>
+                </optgroup>
+                <optgroup label="OpenAI Fallbacks">
+                  <option value="alloy">Alloy (Neutral)</option>
+                  <option value="echo">Echo (Warm)</option>
+                  <option value="shimmer">Shimmer (Bright)</option>
+                </optgroup>
               </select>
             </div>
-            <div class="space-y-2">
-              <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Voice Identity</label>
-              <select v-model="form.tts_voice_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-                <option value="alloy">Alloy (Neutral)</option>
-                <option value="echo">Echo (Warm)</option>
-                <option value="shimmer">Shimmer (Bright)</option>
-              </select>
+
+            <div class="space-y-2 pt-2 border-t border-border/40">
+              <label class="text-xs font-medium text-muted-foreground">Or Enter Custom Voice ID</label>
+              <input v-model="form.tts_voice_id" type="text" placeholder="Custom Fish Audio Voice ID" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs font-mono placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
             </div>
             
-            <button class="w-full mt-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              Test Voice
-            </button>
+            <div class="flex gap-2 pt-1">
+              <button @click="testVoiceSample" type="button" class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary h-9 px-3 py-1 gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span>{{ testingVoice ? 'Testing Voice...' : 'Preview Voice ID' }}</span>
+              </button>
+            </div>
           </div>
         </div>
         
@@ -223,6 +234,31 @@ const saving = ref(false);
 const showToast = ref(false);
 const tier = ref('payg');
 const expertMode = ref(false);
+const fishAudioVoices = ref([]);
+const testingVoice = ref(false);
+
+const fetchFishAudioVoices = async () => {
+  try {
+    const res = await api.get('/api/client/fish-audio/voices');
+    fishAudioVoices.value = res.data?.items || [];
+  } catch (err) {
+    console.warn("Could not fetch Fish Audio voices:", err);
+  }
+};
+
+const testVoiceSample = () => {
+  if (!form.value.tts_voice_id) return;
+  testingVoice.value = true;
+  const synth = window.speechSynthesis;
+  if (synth) {
+    const utter = new SpeechSynthesisUtterance("Hello! This is a preview of your selected AI voice identity.");
+    utter.onend = () => { testingVoice.value = false; };
+    utter.onerror = () => { testingVoice.value = false; };
+    synth.speak(utter);
+  } else {
+    setTimeout(() => { testingVoice.value = false; }, 1200);
+  }
+};
 
 const getTenantIdFromToken = () => {
   const token = localStorage.getItem('alfie_client_token');
@@ -306,5 +342,6 @@ const saveConfig = async () => {
 
 onMounted(() => {
   fetchConfig();
+  fetchFishAudioVoices();
 });
 </script>

@@ -143,7 +143,7 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 | Calendar Booking (Cal.com) | N/A | N/A | ✅ Synced (Config Form) | ✅ Synced (`calendar_tools`) | **Fully Synced** |
 | Telephony & SIP Routing (Twilio) | ✅ Synced (`twilio_routes.py` Webhook) | N/A | ✅ Synced (BYOK Config) | ✅ Synced (LiveKit SIP) | **Fully Synced** |
 | Privacy-Enforced Call Telemetry | ✅ Synced | ✅ Synced (Filtered) | ✅ Synced (Transcripts/Audio) | ✅ Synced | **Fully Synced** |
-| Fish Audio Voice Discover | ✅ Synced | ✅ Synced | Pending | ✅ Synced | **Synced** |
+| Fish Audio Voice Discover | ✅ Synced (`GET /api/client/fish-audio/voices`) | ✅ Synced (`Personas.vue`, `Tenants.vue`) | ✅ Synced (`AgentConfiguration.vue`) | ✅ Synced (`tts_voice_id`) | **Fully Synced** |
 | Per-Tenant Config Overrides | ✅ Synced | ✅ Synced | ✅ Synced | ✅ Synced | **Fully Synced** |
 | LiveKit WebRTC Simulator | ✅ Synced | ✅ Synced | N/A | ✅ Synced | **Fully Synced** |
 | Custom Webhook Tools | ✅ Synced | ✅ Synced | N/A | ✅ Synced | **Fully Synced** |

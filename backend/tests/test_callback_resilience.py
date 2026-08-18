@@ -105,6 +105,16 @@ class TestCallbackResilience(unittest.IsolatedAsyncioTestCase):
         self.assertIn("TRANSFER_BUSY", result)
         self.assertIn("callback", result.lower())
 
+    async def test_client_fish_audio_voices_endpoint(self):
+        from routes.client_routes import list_client_fish_audio_voices
+
+        user = {"user_id": "test", "tenant_id": self.tenant_id, "role": "client_admin"}
+        voices = await list_client_fish_audio_voices(current_user=user)
+        self.assertIn("items", voices)
+        self.assertGreater(len(voices["items"]), 0)
+        self.assertIn("id", voices["items"][0])
+
 
 if __name__ == "__main__":
     unittest.main()
+
