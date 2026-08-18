@@ -3,6 +3,7 @@ import asyncio
 import aiohttp
 import json
 import uuid
+from typing import Optional, Dict, Any, List
 from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
 from livekit.agents.voice import Agent
 from livekit.plugins import deepgram, openai, silero, fishaudio

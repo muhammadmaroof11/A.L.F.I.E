@@ -3,6 +3,14 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 
+class MongoBaseModel(BaseModel):
+    id: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+
+
 class VoiceConfig(BaseModel):
     provider: str
     model: str

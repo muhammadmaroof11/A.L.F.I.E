@@ -1,9 +1,13 @@
 import logging
-import stripe
 from fastapi import APIRouter, Request, HTTPException
 from config import settings
 from telemetry import _pool
 import uuid
+
+try:
+    import stripe
+except ImportError:
+    stripe = None
 
 logger = logging.getLogger("alfie-billing")
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
@@ -11,9 +15,9 @@ router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 
 @router.post("/stripe")
 async def stripe_webhook(request: Request):
-    if not settings.stripe_webhook_secret:
+    if not stripe or not settings.stripe_webhook_secret:
         raise HTTPException(
-            status_code=501, detail="Stripe webhook secret not configured"
+            status_code=501, detail="Stripe integration or webhook secret not configured"
         )
 
     payload = await request.body()
