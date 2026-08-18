@@ -35,6 +35,12 @@ from cache import (
     is_feature_enabled,
     get_transfer_context,
     CachedOpenAILLM,
+    get_cached_prompt,
+    store_cached_prompt,
+    init_bloom_filter,
+    check_duplicate_call,
+    init_timeseries,
+    record_call_start,
 )
 
 # Register available tools
@@ -68,6 +74,9 @@ async def prewarm(proc):
     # Initialize Semantic LLM Cache and pre-warm niche FAQs in the background
     asyncio.create_task(init_semantic_cache(settings.redis_dsn))
     asyncio.create_task(prewarm_niche_faqs("demo-tenant", "demo"))
+    redis_client = await get_redis()
+    if redis_client:
+        asyncio.create_task(init_bloom_filter(redis_client))
 
 
 async def entrypoint(ctx: JobContext):
@@ -172,11 +181,11 @@ async def entrypoint(ctx: JobContext):
                     if row and row["tenant_config"]:
                         custom_config = json.loads(row["tenant_config"])
 
-                # Save to Redis cache for 60 seconds
+                # Save to Redis cache for 300 seconds (5 min — invalidated on admin save)
                 if redis_client and custom_config:
                     await redis_client.setex(
                         f"tenant_config:{agent_id or tenant_id}",
-                        60,
+                        300,
                         json.dumps(custom_config),
                     )
         except Exception as e:
@@ -234,10 +243,25 @@ async def entrypoint(ctx: JobContext):
     cache_enabled = True
     if redis_client:
         try:
+            # 0. TimeSeries Metrics Initialization & Call Counter
+            asyncio.create_task(init_timeseries(redis_client, tenant_id))
+            asyncio.create_task(record_call_start(redis_client, tenant_id))
+
+            # 1. Spam & Duplicate Call Filter (0.1ms Bloom filter check)
+            if caller_phone:
+                is_allowed, reason = await check_duplicate_call(
+                    redis_client, caller_phone, tenant_id
+                )
+                if not is_allowed:
+                    logger.warning(
+                        f"[{tenant_id}] Rejected duplicate call from {caller_phone}: {reason}"
+                    )
+                    return
+
             cache_enabled = await is_feature_enabled(
                 redis_client, tenant_id, "semantic_cache_enabled", default=True
             )
-            # 1. Caller Memory Injection
+            # 2. Caller Memory Injection
             if caller_phone:
                 caller_data = await get_caller_context(
                     redis_client, tenant_id, caller_phone
@@ -246,7 +270,7 @@ async def entrypoint(ctx: JobContext):
                     memory_prompt = build_memory_prompt(caller_data)
                     raw_system_prompt += f"\n\n{memory_prompt}"
 
-            # 2. Call Transfer Context Handoff
+            # 3. Call Transfer Context Handoff
             transfer_data = await get_transfer_context(redis_client, ctx.room.name)
             if transfer_data:
                 raw_system_prompt += (
@@ -318,23 +342,31 @@ async def entrypoint(ctx: JobContext):
     if chat_history_summary:
         raw_system_prompt += f"\n\n=== RECENT WEBCHAT TRANSCRIPT (PRECEEDING TEXT CONVERSATION) ===\nThe caller recently chatted with you over text before making this call:\n{chat_history_summary}\n\nIMPORTANT VOICE GREETING INSTRUCTION:\nGreet the caller seamlessly by acknowledging your prior text conversation above!"
 
-    # Compress Context via LLMLingua-2
+    # Compress Context via LLMLingua-2 with Redis Prompt Caching
     system_prompt = raw_system_prompt
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "http://llmlingua:5000/compress",
-                json={"context": raw_system_prompt, "target_token": 600},
-                timeout=2.0,
-            ) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    system_prompt = data.get("compressed_prompt", raw_system_prompt)
-                    logger.info(
-                        f"Compressed prompt. Saved {data.get('saved_tokens', 0)} tokens."
-                    )
-    except Exception as e:
-        logger.warning(f"LLMLingua compression skipped or failed: {e}")
+    cached_compressed = await get_cached_prompt(redis_client, raw_system_prompt)
+    if cached_compressed:
+        system_prompt = cached_compressed
+    else:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "http://llmlingua:5000/compress",
+                    json={"context": raw_system_prompt, "target_token": 600},
+                    timeout=2.0,
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        system_prompt = data.get("compressed_prompt", raw_system_prompt)
+                        logger.info(
+                            f"Compressed prompt. Saved {data.get('saved_tokens', 0)} tokens."
+                        )
+                        if redis_client:
+                            await store_cached_prompt(
+                                redis_client, raw_system_prompt, system_prompt
+                            )
+        except Exception as e:
+            logger.warning(f"LLMLingua compression skipped or failed: {e}")
 
     # Setup tools
     tool_keys = config_data.get("enabled_tools", [])

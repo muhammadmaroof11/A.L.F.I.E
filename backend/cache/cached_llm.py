@@ -50,6 +50,18 @@ if _HAS_LIVEKIT and llm:
                         logger.info(
                             f"[SEMANTIC CACHE HIT -> STREAMING CACHED TO TTS] Prompt: '{last_user_msg[:35]}...'"
                         )
+                        # Record cache hit metric
+                        from telemetry import get_redis
+                        from cache.metrics import record_cache_hit
+
+                        redis_client = await get_redis()
+                        if redis_client:
+                            asyncio.create_task(
+                                record_cache_hit(
+                                    redis_client, self.parent_llm.tenant_id
+                                )
+                            )
+
                         chunk = llm.ChatChunk(
                             choices=[
                                 llm.Choice(
@@ -67,6 +79,15 @@ if _HAS_LIVEKIT and llm:
 
             # Cache Miss: Delegate to real OpenAI / LiteLLM stream
             try:
+                from telemetry import get_redis
+                from cache.metrics import record_cache_miss
+
+                redis_client = await get_redis()
+                if redis_client:
+                    asyncio.create_task(
+                        record_cache_miss(redis_client, self.parent_llm.tenant_id)
+                    )
+
                 self._underlying_stream = super(CachedOpenAILLM, self.parent_llm).chat(
                     chat_ctx=self.chat_ctx, fnc_ctx=self.fnc_ctx, **self.kwargs
                 )

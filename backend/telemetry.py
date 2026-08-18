@@ -33,7 +33,7 @@ async def init_telemetry_pool():
     if asyncpg and not _pool:
         try:
             _pool = await asyncpg.create_pool(
-                settings.telemetry_db_dsn, min_size=5, max_size=50
+                settings.telemetry_db_dsn, min_size=2, max_size=20
             )
             logger.info("Telemetry pool initialized successfully.")
         except Exception as e:

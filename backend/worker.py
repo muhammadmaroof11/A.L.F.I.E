@@ -26,12 +26,19 @@ async def generate_call_summary(ctx, call_id: str, tenant_id: str, transcript: l
     prompt = f"""
     You are an AI tasked with summarizing a phone call transcript.
     Provide a concise 2-3 sentence summary of the call.
-    Then provide a score out of 10 for the user's intent to convert (e.g. 8/10).
+    Then extract the caller's conversion intent and their name if mentioned.
     Format your response EXACTLY as JSON:
     {{
         "summary": "...",
-        "intent_score": 8
+        "intent_score": 8,
+        "intent_label": "booking_inquiry",
+        "caller_name": "John"
     }}
+    
+    EXTRACTION RULES:
+    - intent_score: 1-10 score of the caller's buying/conversion intent.
+    - intent_label: One of: booking_inquiry, general_question, complaint, price_inquiry, follow_up, legal_consultation, property_viewing, vehicle_reservation, appointment_scheduling, other.
+    - caller_name: The caller's name if mentioned in the transcript. If not mentioned, use "".
     
     TRANSCRIPT:
     {transcript_text}
@@ -39,6 +46,8 @@ async def generate_call_summary(ctx, call_id: str, tenant_id: str, transcript: l
 
     summary = "Call concluded."
     intent_score = 5
+    intent_label = ""
+    caller_name = ""
 
     try:
         # Use OpenRouter for cloud-based LLM generation via global pooled client
@@ -61,7 +70,11 @@ async def generate_call_summary(ctx, call_id: str, tenant_id: str, transcript: l
         result = json.loads(content)
         summary = result.get("summary", summary)
         intent_score = result.get("intent_score", 5)
-        logger.info(f"Summary generated for {call_id}: {summary}")
+        intent_label = result.get("intent_label", "")
+        caller_name = result.get("caller_name", "")
+        logger.info(
+            f"Summary generated for {call_id}: {summary} (Intent: {intent_label}, Caller: {caller_name})"
+        )
     except Exception as e:
         logger.error(f"LLM summary generation failed: {e}")
 
@@ -85,7 +98,9 @@ async def generate_call_summary(ctx, call_id: str, tenant_id: str, transcript: l
                             redis_client,
                             tenant_id=tenant_id,
                             phone=row["caller_number"],
+                            name=caller_name,
                             notes=summary,
+                            intent=intent_label,
                             intent_score=intent_score,
                         )
         except Exception as e:
