@@ -22,7 +22,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg text-fg font-sans selection:bg-secondary selection:text-white relative">
+    <div className="min-h-screen bg-[#0B0F17] text-[#F8FAFC] font-sans selection:bg-blue-600 selection:text-white relative">
       
       {/* Sticky Navigation */}
       <Navbar onOpenDemo={() => handleStartDemo('legal')} />

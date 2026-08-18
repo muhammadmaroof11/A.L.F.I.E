@@ -49,10 +49,10 @@ export default function ModelViewer({
         gl={{ antialias: true, alpha: true }}
         dpr={[1, 2]}
       >
-        <ambientLight intensity={0.95} />
-        <directionalLight position={[6, 8, 6]} intensity={1.5} color="#FFFFFF" />
-        <directionalLight position={[-6, 2, -4]} intensity={0.65} color="#E2E8F0" />
-        <pointLight position={[0, 4, 3]} intensity={0.7} color="#FFFFFF" />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[6, 8, 6]} intensity={1.8} color="#E2E8F0" />
+        <directionalLight position={[-6, 2, -4]} intensity={0.5} color="#38BDF8" />
+        <pointLight position={[0, 4, 3]} intensity={0.4} color="#818CF8" />
 
         <Suspense fallback={<Loader />}>
           {enableFloat ? (
@@ -74,11 +74,11 @@ export default function ModelViewer({
               scale={5.5}
               blur={2.4}
               far={3.5}
-              color="#0F2744"
+              color="#000000"
             />
           )}
 
-          <Environment preset="city" />
+          <Environment preset="night" />
         </Suspense>
       </Canvas>
     </div>
