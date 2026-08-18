@@ -12,7 +12,7 @@ const badges = [
 
 export default function TrustStrip() {
   return (
-    <section className="py-8 bg-white border-b border-slate-200/80 overflow-hidden">
+    <section className="py-8 bg-[#091728] border-b border-white/[0.05] overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-center">
@@ -21,14 +21,14 @@ export default function TrustStrip() {
             return (
               <div 
                 key={idx} 
-                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-white hover:border-slate-300 transition-all group"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.04] hover:bg-white/[0.06] hover:border-white/[0.12] transition-all group"
               >
-                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700 group-hover:text-blue-600 transition-colors shadow-2xs shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-[#091728] border border-white/[0.06] flex items-center justify-center text-[#CBD5E1] group-hover:text-[#38BDF8] transition-colors shadow-none shrink-0">
                   <BadgeIcon className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-800 truncate">{b.label}</p>
-                  <p className="text-[10px] text-slate-500 font-medium truncate">{b.sub}</p>
+                  <p className="text-xs font-bold text-[#E2E8F0] truncate">{b.label}</p>
+                  <p className="text-[10px] text-[#64748B] font-medium truncate">{b.sub}</p>
                 </div>
               </div>
             );

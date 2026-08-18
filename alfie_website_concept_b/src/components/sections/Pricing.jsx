@@ -70,18 +70,18 @@ export default function Pricing() {
   };
 
   return (
-    <section id="pricing" className="py-20 bg-[#FAFAFC] border-b border-slate-200/80">
+    <section id="pricing" className="py-20 bg-[#0B0F17] border-b border-white/[0.05]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-white/[0.05] text-[#CBD5E1] border border-white/[0.06]">
             <span>Enterprise SaaS Pricing</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#F8FAFC] tracking-tight">
             Transparent Plans Engineered for Predictable ROI
           </h2>
-          <p className="text-sm sm:text-base text-slate-600">
+          <p className="text-sm sm:text-base text-[#94A3B8]">
             No long-term lock-ins. Zero proprietary hardware required. Pay for active telephony minutes with full credit accounting.
           </p>
         </div>
@@ -91,26 +91,26 @@ export default function Pricing() {
           {tiers.map((t, idx) => (
             <ScrollReveal key={idx} y={20} duration={0.6} delay={idx * 0.12}>
               <div 
-                className={`h-full rounded-2xl p-7 flex flex-col justify-between relative transition-all bg-white ${
+                className={`h-full rounded-2xl p-7 flex flex-col justify-between relative transition-all bg-[#091728] ${
                   t.popular 
                     ? 'border-2 border-slate-900 shadow-md ring-4 ring-slate-900/5' 
-                    : 'border border-slate-200 shadow-2xs hover:border-slate-300'
+                    : 'border border-white/[0.06] shadow-none hover:border-slate-300'
                 }`}
               >
                 {/* Popular Floating Badge */}
                 {t.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-xs">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                     ★ {t.badge}
                   </div>
                 )}
 
                 <div>
                   {/* Header */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/[0.04]">
                     <div>
-                      <h3 className="font-extrabold text-lg text-slate-900">{t.name}</h3>
+                      <h3 className="font-extrabold text-lg text-[#F8FAFC]">{t.name}</h3>
                       {!t.popular && (
-                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">
+                        <span className="text-[10px] font-semibold text-[#64748B] bg-white/[0.05] px-2 py-0.5 rounded mt-1 inline-block">
                           {t.badge}
                         </span>
                       )}
@@ -120,24 +120,24 @@ export default function Pricing() {
                   {/* Price Block */}
                   <div className="py-5">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight font-mono">{t.price}</span>
-                      <span className="text-xs font-bold text-slate-500">{t.period}</span>
+                      <span className="text-3xl sm:text-4xl font-black text-[#F8FAFC] tracking-tight font-mono">{t.price}</span>
+                      <span className="text-xs font-bold text-[#64748B]">{t.period}</span>
                     </div>
-                    <p className="text-[11px] text-blue-600 font-semibold mt-1">
+                    <p className="text-[11px] text-[#38BDF8] font-semibold mt-1">
                       {t.usage}
                     </p>
-                    <p className="text-xs text-slate-600 mt-2.5 leading-relaxed">
+                    <p className="text-xs text-[#94A3B8] mt-2.5 leading-relaxed">
                       {t.desc}
                     </p>
                   </div>
 
                   {/* Feature Checklist */}
-                  <div className="space-y-2.5 py-5 border-t border-slate-100">
+                  <div className="space-y-2.5 py-5 border-t border-white/[0.04]">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Included capabilities:</p>
                     <ul className="space-y-2">
                       {t.features.map((feat, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-slate-700 font-medium">
-                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <li key={i} className="flex items-start gap-2 text-xs text-[#CBD5E1] font-medium">
+                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                           <span>{feat}</span>
                         </li>
                       ))}
@@ -163,8 +163,8 @@ export default function Pricing() {
 
         {/* Security Guarantee Strip */}
         <div className="mt-12 text-center">
-          <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-2xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <div className="inline-flex items-center gap-2 text-xs font-medium text-[#64748B] bg-[#091728] px-4 py-2 rounded-full border border-white/[0.06] shadow-none">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>14-Day Money Back Guarantee • BYOK Carrier Support • Cancel Anytime</span>
           </div>
         </div>

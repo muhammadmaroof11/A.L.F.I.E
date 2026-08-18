@@ -10,7 +10,7 @@ const niches = [
     subtitle: 'Autonomous $10k+ Retainer Triage & Partner Phone Bridge',
     badge: 'Legal Intake Engine',
     icon: Scale,
-    tagColor: 'bg-amber-50 text-amber-800 border-amber-200',
+    tagColor: 'bg-amber-500/10 text-amber-300 border-amber-200',
     modelUrl: '/models/niche_legal.glb',
     videoUrl: '/videos/legal_intake.mp4',
     photoUrl: '/images/niche_legal_detail.jpeg',
@@ -32,7 +32,7 @@ const niches = [
     subtitle: 'Real-Time Insurance Network Validation & EMR Scheduling',
     badge: 'Clinical Reception Desk',
     icon: Stethoscope,
-    tagColor: 'bg-sky-50 text-sky-800 border-sky-200',
+    tagColor: 'bg-sky-500/10 text-sky-300 border-sky-200',
     modelUrl: '/models/niche_clinic.glb',
     videoUrl: '/videos/clinic_demo.mp4',
     photoUrl: '/images/niche_clinic_consult.jpeg',
@@ -54,7 +54,7 @@ const niches = [
     subtitle: 'Instant Dynamic Distance Routing & Chauffeur Dispatch',
     badge: 'Fleet Dispatch Desk',
     icon: Car,
-    tagColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    tagColor: 'bg-emerald-500/10 text-emerald-300 border-emerald-200',
     modelUrl: '/models/niche_carrental.glb',
     videoUrl: null,
     photoUrl: '/images/niche_fleet_vip.jpeg',
@@ -75,7 +75,7 @@ const niches = [
     subtitle: 'High-Ticket MLS Property Matching & Private Tour Coordination',
     badge: 'Realty Concierge',
     icon: Building2,
-    tagColor: 'bg-blue-50 text-blue-800 border-blue-200',
+    tagColor: 'bg-blue-50 text-blue-800 border-blue-500/15',
     modelUrl: '/models/niche_realestate.glb',
     videoUrl: null,
     photoUrl: '/images/brand_hero_nexus.jpeg',
@@ -118,18 +118,18 @@ export default function NicheShowcase({ onSelectNiche }) {
   const activeNiche = niches.find(n => n.id === selectedTab) || niches[0];
 
   return (
-    <section id="niche-showcase" className="py-20 bg-white border-b border-slate-200/80">
+    <section id="niche-showcase" className="py-20 bg-[#091728] border-b border-white/[0.05]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-white/[0.05] text-[#CBD5E1] border border-white/[0.06]">
             <span>Specialized Vertical Toolsets</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#F8FAFC] tracking-tight">
             Trained on Industry Playbooks, Not Generic Chit-Chat
           </h2>
-          <p className="text-sm sm:text-base text-slate-600">
+          <p className="text-sm sm:text-base text-[#94A3B8]">
             Each A.L.F.I.E node connects to industry database schemas with deterministic tool calling and compliance guardrails.
           </p>
         </div>
@@ -145,11 +145,11 @@ export default function NicheShowcase({ onSelectNiche }) {
                 onClick={() => setSelectedTab(n.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap cursor-pointer ${
                   isSelected
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
+                    ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
+                    : 'bg-white/[0.05] text-[#94A3B8] hover:bg-slate-200/70 hover:text-[#F8FAFC]'
                 }`}
               >
-                <TabIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-blue-300' : 'text-slate-500'}`} />
+                <TabIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-blue-300' : 'text-[#64748B]'}`} />
                 <span>{n.name}</span>
                 {n.videoUrl && (
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Commercial Reel Available" />
@@ -161,7 +161,7 @@ export default function NicheShowcase({ onSelectNiche }) {
 
         {/* Master Mission Control Display */}
         <ScrollReveal y={20} duration={0.6}>
-          <div className="bg-[#FAFAFC] rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs">
+          <div className="bg-[#0B0F17] rounded-3xl border border-white/[0.06] p-6 sm:p-8 shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
               
               {/* Left Column: Live Tool Execution Console */}
@@ -169,17 +169,17 @@ export default function NicheShowcase({ onSelectNiche }) {
                 
                 <div className="space-y-4">
                   {/* Persona Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${activeNiche.tagColor}`}>
                           {activeNiche.badge}
                         </span>
-                        <span className="text-xs font-bold text-slate-800">
+                        <span className="text-xs font-bold text-[#E2E8F0]">
                           {activeNiche.personaName}
                         </span>
                       </div>
-                      <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
+                      <h3 className="text-lg sm:text-xl font-extrabold text-[#F8FAFC] mt-1">
                         {activeNiche.subtitle}
                       </h3>
                     </div>
@@ -188,23 +188,23 @@ export default function NicheShowcase({ onSelectNiche }) {
                       <img 
                         src={activeNiche.avatarF} 
                         alt="Persona Portrait" 
-                        className="w-8 h-8 rounded-full object-cover border border-slate-300 shadow-2xs" 
+                        className="w-8 h-8 rounded-full object-cover border border-slate-300 shadow-none" 
                       />
                       <img 
                         src={activeNiche.avatarM} 
                         alt="Persona Male" 
-                        className="w-8 h-8 rounded-full object-cover border border-slate-300 shadow-2xs" 
+                        className="w-8 h-8 rounded-full object-cover border border-slate-300 shadow-none" 
                       />
                     </div>
                   </div>
 
                   {/* Natural Spoken Quote */}
-                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 text-xs shadow-2xs space-y-1">
-                    <p className="text-[10px] font-mono font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <Volume2 className="w-3 h-3 text-blue-600" />
+                  <div className="bg-[#091728] p-3.5 rounded-xl border border-white/[0.06] text-xs shadow-none space-y-1">
+                    <p className="text-[10px] font-mono font-bold text-[#38BDF8] uppercase tracking-wider flex items-center gap-1.5">
+                      <Volume2 className="w-3 h-3 text-[#38BDF8]" />
                       <span>Natural Spoken Cadence:</span>
                     </p>
-                    <p className="text-slate-800 italic leading-relaxed">
+                    <p className="text-[#E2E8F0] italic leading-relaxed">
                       {activeNiche.scriptSnippet}
                     </p>
                   </div>
@@ -226,7 +226,7 @@ export default function NicheShowcase({ onSelectNiche }) {
                         <div key={idx} className="space-y-0.5 bg-slate-950/50 p-2 rounded-lg border border-slate-800/80">
                           <div className="flex items-center justify-between text-slate-300">
                             <span className="text-blue-400 font-bold">▶ {tool.fn}(<span className="text-slate-400 font-normal">{tool.arg}</span>)</span>
-                            <span className="text-[10px] text-slate-500">{tool.time}</span>
+                            <span className="text-[10px] text-[#64748B]">{tool.time}</span>
                           </div>
                           <div className="text-emerald-400 pl-4 font-semibold text-[10px]">
                             ↳ {tool.result}
@@ -280,7 +280,7 @@ export default function NicheShowcase({ onSelectNiche }) {
 
                   {/* Cinema Badge Overlay */}
                   <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-white text-[10px] font-mono font-bold flex items-center gap-1.5 z-10">
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-red-500/100 animate-pulse" />
                     <span>{activeNiche.videoUrl ? 'Veo 3.1 Commercial Reel' : 'Field Operations Showcase'}</span>
                   </div>
 

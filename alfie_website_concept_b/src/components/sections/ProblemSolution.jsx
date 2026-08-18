@@ -6,18 +6,18 @@ export default function ProblemSolution() {
   const [activeMedia, setActiveMedia] = useState('video'); // 'video' | 'photo'
 
   return (
-    <section className="py-20 bg-white border-b border-slate-200/80">
+    <section className="py-20 bg-[#091728] border-b border-white/[0.05]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-200">
             <span>The $10,000+ Missed Call Reality</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#F8FAFC] tracking-tight">
             Why High-Value Businesses Bleed Clients After Hours
           </h2>
-          <p className="text-sm sm:text-base text-slate-600">
+          <p className="text-sm sm:text-base text-[#94A3B8]">
             In competitive verticals like Personal Injury Law or Private Clinics, 84% of callers hang up and dial the next competitor if they hit voicemail or an offshore answering service.
           </p>
         </div>
@@ -27,22 +27,22 @@ export default function ProblemSolution() {
           
           {/* Card 1: The Pain (Before) */}
           <ScrollReveal y={20} duration={0.6} delay={0.1}>
-            <div className="h-full bg-[#FAFAFC] rounded-3xl p-6 sm:p-8 border border-red-200/90 shadow-2xs flex flex-col justify-between">
+            <div className="h-full bg-[#0B0F17] rounded-3xl p-6 sm:p-8 border border-red-500/20 shadow-none flex flex-col justify-between">
               
               <div>
                 {/* Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-red-100">
-                  <div className="flex items-center gap-2 text-red-700 font-extrabold text-base">
-                    <XCircle className="w-5 h-5 text-red-600" />
+                <div className="flex items-center justify-between pb-4 border-b border-red-500/10">
+                  <div className="flex items-center gap-2 text-red-400 font-extrabold text-base">
+                    <XCircle className="w-5 h-5 text-red-400" />
                     <span>Traditional Phone Bottlenecks</span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-md bg-red-100 text-red-800 text-[11px] font-bold">
+                  <span className="px-2.5 py-0.5 rounded-md bg-red-100 text-red-300 text-[11px] font-bold">
                     34% Call Failure Rate
                   </span>
                 </div>
 
                 {/* Hero Media: Overwhelmed Lawyer */}
-                <div className="my-5 rounded-2xl overflow-hidden border border-red-200 shadow-sm relative h-[220px] bg-slate-900 group">
+                <div className="my-5 rounded-2xl overflow-hidden border border-red-500/15 shadow-[0_4px_12px_rgba(0,0,0,0.3)] relative h-[220px] bg-slate-900 group">
                   <img 
                     src="/images/before_overwhelmed.jpeg" 
                     alt="Overwhelmed Business Owner at Cluttered Desk" 
@@ -66,31 +66,31 @@ export default function ProblemSolution() {
                   <div className="flex items-start gap-2.5">
                     <PhoneMissed className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-slate-800">4-Minute Hold Times & Voicemails</p>
-                      <p className="text-slate-500">Peak hours and lunch breaks cause high-intent clients to hang up.</p>
+                      <p className="font-bold text-[#E2E8F0]">4-Minute Hold Times & Voicemails</p>
+                      <p className="text-[#64748B]">Peak hours and lunch breaks cause high-intent clients to hang up.</p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-2.5">
                     <UserX className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-slate-800">Offshore Call Centers Read Scripts</p>
-                      <p className="text-slate-500">Generic operators cannot verify dental insurance or intake accident merits.</p>
+                      <p className="font-bold text-[#E2E8F0]">Offshore Call Centers Read Scripts</p>
+                      <p className="text-[#64748B]">Generic operators cannot verify dental insurance or intake accident merits.</p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-2.5">
                     <Clock className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-slate-800">Emergency Leads Sit Overnight</p>
-                      <p className="text-slate-500">No instant partner hot-transfer means emergency retained cases are lost.</p>
+                      <p className="font-bold text-[#E2E8F0]">Emergency Leads Sit Overnight</p>
+                      <p className="text-[#64748B]">No instant partner hot-transfer means emergency retained cases are lost.</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Bottom Metric */}
-              <div className="pt-4 mt-6 border-t border-red-100 flex items-center justify-between text-xs font-semibold text-red-700 bg-red-50/70 p-3 rounded-xl">
+              <div className="pt-4 mt-6 border-t border-red-500/10 flex items-center justify-between text-xs font-semibold text-red-400 bg-red-500/100/10 p-3 rounded-xl">
                 <span className="flex items-center gap-1.5 font-bold">
                   <TrendingDown className="w-4 h-4" /> Average Missed Revenue:
                 </span>
@@ -102,21 +102,21 @@ export default function ProblemSolution() {
 
           {/* Card 2: The Victory (After - A.L.F.I.E) */}
           <ScrollReveal y={20} duration={0.6} delay={0.2}>
-            <div className="h-full bg-[#FAFAFC] rounded-3xl p-6 sm:p-8 border border-blue-200/90 shadow-2xs flex flex-col justify-between">
+            <div className="h-full bg-[#0B0F17] rounded-3xl p-6 sm:p-8 border border-blue-500/20 shadow-none flex flex-col justify-between">
               
               <div>
                 {/* Header & Media Toggle */}
-                <div className="flex items-center justify-between pb-4 border-b border-blue-100">
-                  <div className="flex items-center gap-2 text-slate-900 font-extrabold text-base">
-                    <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                <div className="flex items-center justify-between pb-4 border-b border-blue-500/10">
+                  <div className="flex items-center gap-2 text-[#F8FAFC] font-extrabold text-base">
+                    <CheckCircle2 className="w-5 h-5 text-[#38BDF8]" />
                     <span>The A.L.F.I.E Standard</span>
                   </div>
 
-                  <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
+                  <div className="flex items-center gap-1 bg-[#091728] p-0.5 rounded-lg border border-white/[0.06]">
                     <button
                       onClick={() => setActiveMedia('video')}
                       className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                        activeMedia === 'video' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                        activeMedia === 'video' ? 'bg-blue-600 text-white shadow-none' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                       }`}
                     >
                       <Video className="w-3 h-3" />
@@ -125,7 +125,7 @@ export default function ProblemSolution() {
                     <button
                       onClick={() => setActiveMedia('photo')}
                       className={`px-2.5 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                        activeMedia === 'photo' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                        activeMedia === 'photo' ? 'bg-slate-900 text-white shadow-none' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
                       }`}
                     >
                       <ImageIcon className="w-3 h-3" />
@@ -135,7 +135,7 @@ export default function ProblemSolution() {
                 </div>
 
                 {/* Hero Media: Partner Victory Reel / Confident Photo */}
-                <div className="my-5 rounded-2xl overflow-hidden border border-blue-200 shadow-sm relative h-[220px] bg-slate-900 group">
+                <div className="my-5 rounded-2xl overflow-hidden border border-blue-500/15 shadow-[0_4px_12px_rgba(0,0,0,0.3)] relative h-[220px] bg-slate-900 group">
                   {activeMedia === 'video' ? (
                     <video 
                       autoPlay 
@@ -169,35 +169,35 @@ export default function ProblemSolution() {
                 {/* Solution Points List */}
                 <div className="space-y-3 text-xs">
                   <div className="flex items-start gap-2.5">
-                    <PhoneCall className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <PhoneCall className="w-4 h-4 text-[#38BDF8] shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-slate-800">Zero-Ring Pick Up (390ms Latency)</p>
-                      <p className="text-slate-500">Sub-second human conversational voice AI with zero dead air.</p>
+                      <p className="font-bold text-[#E2E8F0]">Zero-Ring Pick Up (390ms Latency)</p>
+                      <p className="text-[#64748B]">Sub-second human conversational voice AI with zero dead air.</p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-2.5">
-                    <UserCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <UserCheck className="w-4 h-4 text-[#38BDF8] shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-slate-800">Deterministic Domain Qualification</p>
-                      <p className="text-slate-500">Validates insurance, checks accident statute, or quotes luxury fleet rates.</p>
+                      <p className="font-bold text-[#E2E8F0]">Deterministic Domain Qualification</p>
+                      <p className="text-[#64748B]">Validates insurance, checks accident statute, or quotes luxury fleet rates.</p>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-2.5">
-                    <Clock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <Clock className="w-4 h-4 text-[#38BDF8] shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-slate-800">Warm SIP Transfer + SMS Brief</p>
-                      <p className="text-slate-500">Sends the managing attorney a full lead summary before their phone rings.</p>
+                      <p className="font-bold text-[#E2E8F0]">Warm SIP Transfer + SMS Brief</p>
+                      <p className="text-[#64748B]">Sends the managing attorney a full lead summary before their phone rings.</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Bottom Metric */}
-              <div className="pt-4 mt-6 border-t border-blue-100 flex items-center justify-between text-xs font-semibold text-emerald-700 bg-emerald-50/70 p-3 rounded-xl">
+              <div className="pt-4 mt-6 border-t border-blue-500/10 flex items-center justify-between text-xs font-semibold text-emerald-400 bg-emerald-500/100/10 p-3 rounded-xl">
                 <span className="flex items-center gap-1.5 font-bold">
-                  <TrendingUp className="w-4 h-4 text-emerald-600" /> Inbound Lead Capture Rate:
+                  <TrendingUp className="w-4 h-4 text-emerald-400" /> Inbound Lead Capture Rate:
                 </span>
                 <span className="font-mono font-bold">99.4% (Zero Dropped Calls)</span>
               </div>
