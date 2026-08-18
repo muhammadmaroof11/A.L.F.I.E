@@ -83,6 +83,57 @@ async def update_lead_status(
         return {"status": "updated"}
 
 
+@router.get("/callbacks")
+async def get_client_callbacks(
+    tenant_id: str, current_user: dict = Depends(get_current_user)
+):
+    """Fetch scheduled callbacks & hot-transfer fallback queue for a client tenant workspace."""
+    if (
+        current_user.get("role") != "super_admin"
+        and current_user.get("tenant_id") != tenant_id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: You can only access your own workspace callbacks.",
+        )
+
+    from telemetry import _pool
+
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    async with _pool.acquire() as conn:
+        records = await conn.fetch(
+            "SELECT * FROM alfie_callbacks WHERE tenant_id = $1 ORDER BY created_at DESC",
+            tenant_id,
+        )
+        res = []
+        for r in records:
+            d = dict(r)
+            d["created_at"] = (
+                d["created_at"].isoformat() if d.get("created_at") else None
+            )
+            res.append(d)
+        return res
+
+
+@router.patch("/callbacks/{id}")
+async def update_callback_status(
+    id: int, status: str, current_user: dict = Depends(get_current_user)
+):
+    """Update status of a scheduled callback (e.g. 'completed', 'in_progress', 'cancelled')."""
+    from telemetry import _pool
+
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+
+    async with _pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE alfie_callbacks SET status = $1 WHERE id = $2", status, id
+        )
+        return {"status": "updated", "callback_id": id, "new_status": status}
+
+
 @router.get("/metrics")
 async def get_client_metrics(
     tenant_id: str, current_user: dict = Depends(get_current_user)

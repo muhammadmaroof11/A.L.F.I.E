@@ -166,6 +166,7 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 | Blender 3D Model Suite (12 Models) | N/A | N/A | N/A | ✅ Synced (`public/models/`) | **Fully Synced** |
 | Light-Mode Trust & Authority Website | N/A | N/A | N/A | ✅ Synced (`alfie_website`) | **Fully Synced** |
 | Dark-Mode Cinema Dispatch Website | N/A | N/A | N/A | ✅ Synced (`alfie_website_concept_b`) | **Fully Synced** |
+| Live Hot Transfer & Line-Busy Resilience | ✅ Synced (`tools/core.py`, `telemetry.py`) | N/A | ✅ Synced (`/api/client/callbacks`) | ✅ Synced (Schedule + Webhook Alerts) | **Fully Synced** |
 
 ---
 
@@ -189,6 +190,8 @@ The platform now features:
 - **Demo Call Limiter (`backend/cache/demo_limiter.py`)**: IP-based rate limiting on live WebRTC test calls.
 - **Tenant Feature Flags (`backend/cache/feature_flags.py`)**: Dynamic, zero-latency toggles stored in Redis Hashes.
 - **Warm Call Transfer Buffer (`backend/cache/transfer_buffer.py`)**: Instant inter-departmental agent handoff.
+- **Live Hot Transfer & Line-Busy Resilience (`backend/tools/core.py`)**: Detects busy / occupied lines during live transfers, gracefully offers priority callbacks, schedules them into PostgreSQL (`alfie_callbacks`), updates caller memory, and dispatches real-time webhook/SMS/Email notifications (`client_callback_scheduled`).
+- **Client Admin Callback Queue (`backend/routes/client_routes.py`)**: Real-time endpoints for viewing and managing scheduled callbacks.
 - **Light-Mode Trust & Authority Website (`alfie_website`)**: Complete redesign featuring React 19 + Tailwind v4 + React Three Fiber 3D interactive models + GSAP ScrollTrigger + 90-second browser test arena + interactive ROI calculator.
 - **12 Optimized 3D Web Models (`alfie_website/public/models/`)**: Generated & customized via Blender 5.2 LTS MCP server.
 

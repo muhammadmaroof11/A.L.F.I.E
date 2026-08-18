@@ -5,7 +5,7 @@ try:
     import asyncpg
 except ImportError:
     asyncpg = None
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 from config import settings
 
@@ -313,6 +313,26 @@ async def init_db_schema():
                 );
             """)
 
+            # Table for Scheduled Callbacks & Hot-Transfer Fallback
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS alfie_callbacks (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id VARCHAR(255) NOT NULL,
+                    call_id VARCHAR(255),
+                    caller_name VARCHAR(255) NOT NULL,
+                    caller_phone VARCHAR(50) NOT NULL,
+                    target_agent_id VARCHAR(255),
+                    target_department VARCHAR(100),
+                    preferred_time VARCHAR(255),
+                    reason TEXT,
+                    notes TEXT,
+                    priority VARCHAR(50) DEFAULT 'high',
+                    status VARCHAR(50) DEFAULT 'scheduled',
+                    notification_sent BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
             # Seed default rate card if empty
             rc_count = await conn.fetchval("SELECT COUNT(*) FROM alfie_rate_cards;")
             if rc_count == 0:
@@ -391,3 +411,46 @@ class TelemetryLogger:
         )
         if _broadcast_callback:
             await _broadcast_callback(payload)
+
+
+async def save_callback_record(
+    tenant_id: str,
+    caller_name: str,
+    caller_phone: str,
+    preferred_time: str,
+    reason: str = "Live Transfer Fallback",
+    target_department: str = None,
+    notes: str = None,
+    call_id: str = None,
+    priority: str = "high",
+    notification_sent: bool = True,
+) -> Optional[int]:
+    """Insert a callback record into alfie_callbacks table."""
+    if not _pool:
+        return None
+    try:
+        async with _pool.acquire() as conn:
+            callback_id = await conn.fetchval(
+                """
+                INSERT INTO alfie_callbacks (
+                    tenant_id, call_id, caller_name, caller_phone, target_department,
+                    preferred_time, reason, notes, priority, status, notification_sent
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'scheduled', $10)
+                RETURNING id
+                """,
+                tenant_id,
+                call_id,
+                caller_name,
+                caller_phone,
+                target_department,
+                preferred_time,
+                reason,
+                notes,
+                priority,
+                notification_sent,
+            )
+            return callback_id
+    except Exception as e:
+        logger.error(f"Failed to save callback record: {e}")
+        return None
+
