@@ -17,14 +17,16 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 - **Backend API:** FastAPI (`backend/api.py`) with PostgreSQL 15 (`backend/telemetry.py`), Redis 7, and MongoDB 8.0
 - **Super Admin Portal:** Vue.js 3 (`super_admin_ui`, Port 5173)
 - **Client Admin Portal:** Vue.js 3 (`client_admin_ui`, Port 5174)
-- **Marketing & Public Demo Website:** React 19 + Tailwind v4 (`alfie_website`, Port 5175)
+- **Marketing & Public Demo Website (Concept A - Trust Fortress):** React 19 + Tailwind v4 (`alfie_website`, Port 5175)
+- **Marketing & Public Demo Website (Concept B - Cinema Dispatch):** React 19 + Tailwind v4 (`alfie_website_concept_b`, Port 5176)
 
 ### Repository Root Structure:
 1. `backend/`: AI voice workers, FastAPI backend, ARQ queue, database schemas, prompt registries, tools, and Dockerfiles.
 2. `docs/`: System blueprints, architecture guides, phone number & SIP trunking guides, and marketing assets.
 3. `client_admin_ui/`: Tenant self-service admin portal.
 4. `super_admin_ui/`: SaaS platform super administration portal.
-5. `alfie_website/`: Public marketing website with interactive in-browser WebRTC Voice AI demo and callback tool.
+5. `alfie_website/`: Public marketing website (Concept A: "Trust Fortress" executive light-mode with dark hero band).
+6. `alfie_website_concept_b/`: Standalone public marketing website (Concept B: "Cinema Dispatch" full-dark cinematic immersion).
 
 ---
 
