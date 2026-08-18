@@ -23,7 +23,7 @@ if _HAS_LIVEKIT and llm:
             self,
             parent_llm: "CachedOpenAILLM",
             chat_ctx: llm.ChatContext,
-            fnc_ctx: Optional[llm.FunctionContext] = None,
+            fnc_ctx: Optional[object] = None,
             **kwargs,
         ):
             super().__init__(parent_llm, chat_ctx=chat_ctx, fnc_ctx=fnc_ctx)
@@ -136,7 +136,7 @@ if _HAS_LIVEKIT and llm:
             self,
             *,
             chat_ctx: llm.ChatContext,
-            fnc_ctx: Optional[llm.FunctionContext] = None,
+            fnc_ctx: Optional[object] = None,
             temperature: Optional[float] = None,
             n: Optional[int] = None,
             parallel_tool_calls: Optional[bool] = None,
