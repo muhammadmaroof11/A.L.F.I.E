@@ -1,0 +1,188 @@
+import React, { useState, useEffect } from 'react';
+import { Phone, ArrowRight, Activity, Menu, X, Shield, Lock } from 'lucide-react';
+
+export default function Navbar({ onOpenDemo }) {
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 15);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToSection = (id) => {
+    setMobileMenuOpen(false);
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  return (
+    <header 
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
+        scrolled 
+          ? 'bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.03)]' 
+          : 'bg-transparent py-4 sm:py-5 text-white'
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between">
+          
+          {/* Logo & System Brand */}
+          <div 
+            className="flex items-center gap-2.5 cursor-pointer select-none" 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            <img 
+              src="/logo.png" 
+              alt="A.L.F.I.E Logo" 
+              className="h-8 w-auto object-contain rounded-lg"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className={`font-extrabold text-lg tracking-tight ${scrolled ? 'text-slate-900' : 'text-white'}`}>A.L.F.I.E</span>
+                <span className="badge-live text-[10px] py-0.5 px-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  WebRTC Live
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Navigation Links */}
+          <nav className={`hidden md:flex items-center gap-1 p-1 rounded-xl text-xs font-semibold ${
+            scrolled 
+              ? 'bg-slate-100/80 border border-slate-200/70 text-slate-600' 
+              : 'bg-white/[0.06] border border-white/10 text-slate-300'
+          }`}>
+            <button 
+              onClick={() => scrollToSection('niche-showcase')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+                scrolled ? 'hover:text-slate-900 hover:bg-white' : 'hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Domain Engines
+            </button>
+            <button 
+              onClick={() => scrollToSection('how-it-works')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+                scrolled ? 'hover:text-slate-900 hover:bg-white' : 'hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Telephony Pipeline
+            </button>
+            <button 
+              onClick={() => scrollToSection('roi-calculator')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+                scrolled ? 'hover:text-slate-900 hover:bg-white' : 'hover:text-white hover:bg-white/10'
+              }`}
+            >
+              ROI Modeler
+            </button>
+            <button 
+              onClick={() => scrollToSection('pricing')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+                scrolled ? 'hover:text-slate-900 hover:bg-white' : 'hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Enterprise SaaS
+            </button>
+          </nav>
+
+          {/* Action CTAs */}
+          <div className="hidden sm:flex items-center gap-2.5">
+            <a
+              href="http://localhost:5174" 
+              target="_blank" 
+              rel="noreferrer"
+              className={`px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                scrolled ? 'text-slate-600 hover:text-slate-900' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Lock className={`w-3.5 h-3.5 ${scrolled ? 'text-slate-400' : 'text-slate-400'}`} />
+              <span>Tenant Portal</span>
+            </a>
+            <button
+              onClick={() => {
+                if (onOpenDemo) onOpenDemo();
+                else scrollToSection('demo-arena');
+              }}
+              className="btn-primary text-xs py-2 px-4 rounded-xl"
+            >
+              <Phone className="w-3.5 h-3.5 text-blue-300" />
+              <span>Launch Live Call</span>
+              <ArrowRight className="w-3 h-3 opacity-70" />
+            </button>
+          </div>
+
+          {/* Mobile Menu Toggle */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              onClick={() => scrollToSection('demo-arena')}
+              className="btn-primary p-2 rounded-lg text-xs"
+              aria-label="Call Demo"
+            >
+              <Phone className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 text-slate-600 rounded-lg hover:bg-slate-100"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+
+        </div>
+
+        {/* Mobile Dropdown Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden mt-3 pt-3 pb-3 border-t border-slate-200 bg-white/98 backdrop-blur-lg rounded-2xl p-4 shadow-lg flex flex-col gap-2.5">
+            <button 
+              onClick={() => scrollToSection('niche-showcase')}
+              className="text-left py-2 px-3 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Domain Engines (Legal, Clinics, Fleets)
+            </button>
+            <button 
+              onClick={() => scrollToSection('how-it-works')}
+              className="text-left py-2 px-3 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Telephony Pipeline
+            </button>
+            <button 
+              onClick={() => scrollToSection('roi-calculator')}
+              className="text-left py-2 px-3 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              ROI Modeler
+            </button>
+            <button 
+              onClick={() => scrollToSection('pricing')}
+              className="text-left py-2 px-3 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Enterprise SaaS
+            </button>
+            <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+              <a
+                href="http://localhost:5174"
+                className="btn-secondary py-2 rounded-xl text-center text-xs font-semibold"
+              >
+                Tenant Portal Login
+              </a>
+              <button
+                onClick={() => scrollToSection('demo-arena')}
+                className="btn-primary py-2 rounded-xl text-center text-xs font-semibold"
+              >
+                Launch Live 90s Call
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </header>
+  );
+}

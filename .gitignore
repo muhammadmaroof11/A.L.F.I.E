@@ -35,3 +35,4 @@ build/
 marketing_assets_keys.md
 .env*
 !*.example
+.codegraph/
