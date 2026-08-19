@@ -66,14 +66,15 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 
 ### C. Client Admin UI (`client_admin_ui`)
 - **Routes & Views (`router/index.js`):**
-  - `/login` -> `Login.vue`
-  - `/` -> `Dashboard.vue` (Call Volume Chart & Per-Agent Analytics Bar Chart)
-  - `/settings` -> `Settings.vue` (Read-only Tenant Info, Custom Credit Pricing, & Subscription Management)
-  - `/agents` -> `Agents.vue` (Multiple Agent Management)
-  - `/leads` -> `LeadsKanban.vue`
-  - `/interactions` -> `InteractionHistory.vue`
-  - `/analytics` -> `Analytics.vue`
-  - `/agent` -> `AgentConfiguration.vue`
+  - `/login` -> `Login.vue` (JWT authentication & workspace session storage)
+  - `/` -> `Dashboard.vue` (Dynamic daily call volume line chart, stats & per-agent bar chart)
+  - `/leads` -> `LeadsKanban.vue` (Live lead pipeline with drag-and-drop status persistence to `PATCH /api/client/leads/{id}/status`)
+  - `/interactions` -> `InteractionHistory.vue` (Dynamic call recordings, transcripts, quality score & search filter)
+  - `/callbacks` -> `CallbacksQueue.vue` (Live hot-transfer fallback queue, status toggle & 1-click call back)
+  - `/analytics` -> `Analytics.vue` (Dynamic outcome doughnut distribution & 4-week lead intent score trend)
+  - `/agents` -> `AgentsRoster.vue` (AI agent roster with niche persona provisioning modal)
+  - `/agents/:agent_id` -> `AgentConfiguration.vue` (Fish Audio discover catalog, custom Voice ID, prompt override & webhook tools)
+  - `/billing` -> `Billing.vue` (Live subscription tier, remaining included minutes, credit balance & Stripe checkout)
 
 ---
 

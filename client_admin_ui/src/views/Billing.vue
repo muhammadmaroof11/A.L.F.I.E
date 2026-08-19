@@ -113,7 +113,9 @@
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import api from '../services/api';
+import { useAuthStore } from '../stores/auth';
 
+const auth = useAuthStore();
 const route = useRoute();
 const loading = ref(true);
 const tier = ref('payg');
@@ -127,16 +129,20 @@ const showTopUpModal = ref(false);
 const topUpAmount = ref(100);
 const processing = ref(false);
 
+const getTenantId = () => {
+  return auth.tenantId || localStorage.getItem('alfie_tenant_id') || localStorage.getItem('tenant_id');
+};
+
 const fetchBilling = async () => {
   try {
-    const tenantId = localStorage.getItem('tenant_id');
+    const tenantId = getTenantId();
     const res = await api.get(`/api/client/billing/subscription?tenant_id=${tenantId}`);
-    tier.value = res.data.subscription_tier;
-    includedMinutes.value = res.data.included_minutes_balance;
-    creditBalance.value = res.data.credit_balance;
-    customPrice.value = res.data.custom_monthly_price;
-    customMinutes.value = res.data.custom_included_minutes;
-    customPerMinuteRate.value = res.data.custom_per_minute_rate;
+    tier.value = res.data.subscription_tier || 'payg';
+    includedMinutes.value = res.data.included_minutes_balance || 0;
+    creditBalance.value = res.data.credit_balance || 0.0;
+    customPrice.value = res.data.custom_monthly_price || 0.0;
+    customMinutes.value = res.data.custom_included_minutes || 0;
+    customPerMinuteRate.value = res.data.custom_per_minute_rate || 0.15;
   } catch (err) {
     console.error("Failed to load billing", err);
   } finally {
@@ -147,7 +153,7 @@ const fetchBilling = async () => {
 const checkout = async () => {
   processing.value = true;
   try {
-    const tenantId = localStorage.getItem('tenant_id');
+    const tenantId = getTenantId();
     const res = await api.post(`/api/client/billing/create-checkout-session?tenant_id=${tenantId}`, {
       amount_usd: topUpAmount.value,
       description: `Alfie Credit Top-Up ($${topUpAmount.value})`
@@ -167,7 +173,6 @@ onMounted(() => {
   
   if (route.query.success) {
     alert("Payment successful! Your credits have been added.");
-    // Ideally clear query param, but basic alert is ok for now.
   }
 });
 </script>

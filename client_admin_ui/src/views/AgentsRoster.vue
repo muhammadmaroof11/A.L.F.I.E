@@ -97,64 +97,98 @@
         </div>
       </div>
     </div>
+    <!-- Provision Agent Modal -->
+    <div v-if="showProvisionModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div class="glass-panel bg-card w-full max-w-md rounded-xl shadow-2xl border border-border/60 overflow-hidden flex flex-col">
+        <div class="px-6 py-4 border-b border-border/40 flex justify-between items-center bg-muted/20">
+          <h3 class="text-lg font-semibold text-foreground">Provision New AI Agent</h3>
+          <button @click="showProvisionModal = false" class="text-muted-foreground hover:text-foreground transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="p-6 space-y-4">
+          <div class="space-y-2">
+            <label class="text-xs font-semibold text-foreground uppercase tracking-wider">Agent Name</label>
+            <input v-model="newAgentForm.name" type="text" placeholder="e.g. Maya - Legal Intake Specialist" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-xs font-semibold text-foreground uppercase tracking-wider">Niche Persona</label>
+            <select v-model="newAgentForm.niche" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary">
+              <option value="general">General Support / Concierge</option>
+              <option value="real_estate">Real Estate & Property Management</option>
+              <option value="car_rental">Car Rental & Fleet Logistics</option>
+              <option value="legal">Law Firm & Legal Intake</option>
+              <option value="medical">Medical Clinic & Patient Scheduling</option>
+              <option value="hospitality">Hospitality & VIP Concierge</option>
+            </select>
+          </div>
+        </div>
+        <div class="px-6 py-4 border-t border-border/40 bg-muted/20 flex justify-end gap-3">
+          <button @click="showProvisionModal = false" class="px-4 py-2 text-xs font-medium text-foreground bg-secondary hover:bg-secondary/80 rounded-md transition-colors">Cancel</button>
+          <button @click="confirmProvision" :disabled="provisioning || !newAgentForm.name" class="px-4 py-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5">
+            <svg v-if="provisioning" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            {{ provisioning ? 'Provisioning...' : 'Provision Agent' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import api from '../services/api';
 
 const authStore = useAuthStore();
 const loading = ref(true);
 const error = ref('');
 const agents = ref([]);
 const provisioning = ref(false);
+const showProvisionModal = ref(false);
+const newAgentForm = ref({
+  name: '',
+  niche: 'general'
+});
+
+const getTenantId = () => {
+  return authStore.tenantId || localStorage.getItem('alfie_tenant_id') || localStorage.getItem('tenant_id');
+};
 
 const fetchAgents = async () => {
   loading.value = true;
   error.value = '';
   try {
-    const res = await fetch(`/api/client/agents?tenant_id=${authStore.user.tenant_id}`, {
-      headers: { 'Authorization': `Bearer ${authStore.token}` }
-    });
-    if (!res.ok) throw new Error('Failed to load agents');
-    const data = await res.json();
-    agents.value = data;
+    const tenantId = getTenantId();
+    const res = await api.get(`/api/client/agents?tenant_id=${tenantId}`);
+    agents.value = res.data || [];
   } catch (err) {
-    console.error(err);
+    console.error("Failed to load agents:", err);
     error.value = 'Unable to load agents. Please check your connection and try again.';
   } finally {
     loading.value = false;
   }
 };
 
-const provisionAgent = async () => {
-  // We want to avoid generic browser prompts as requested by the user. 
-  // Let's just create it directly.
+const provisionAgent = () => {
+  newAgentForm.value = {
+    name: `Agent ${agents.value.length + 1}`,
+    niche: 'general'
+  };
+  showProvisionModal.value = true;
+};
+
+const confirmProvision = async () => {
+  if (!newAgentForm.value.name) return;
   provisioning.value = true;
   try {
-    // Generate a default name like "Agent 1" based on current length
-    const agentName = `New Agent ${agents.value.length + 1}`;
-    
-    const res = await fetch(`/api/client/agents?tenant_id=${authStore.user.tenant_id}`, {
-      method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${authStore.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: agentName,
-        niche: 'general'
-      })
-    });
-    
-    if (!res.ok) throw new Error('Failed to provision agent');
-    
-    // Reload agents
+    const tenantId = getTenantId();
+    await api.post(`/api/client/agents?tenant_id=${tenantId}`, newAgentForm.value);
+    showProvisionModal.value = false;
     await fetchAgents();
   } catch (err) {
-    console.error(err);
-    alert('Failed to provision a new agent.');
+    console.error("Failed to provision agent:", err);
+    alert('Failed to provision agent. Please check your network connection.');
   } finally {
     provisioning.value = false;
   }

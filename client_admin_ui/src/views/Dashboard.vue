@@ -188,10 +188,32 @@ const agentChartOptions = ref({
 
 onMounted(async () => {
   try {
-    const res = await api.get('/api/client/metrics', { params: { tenant_id: auth.tenantId } });
+    const tenantId = auth.tenantId || localStorage.getItem('alfie_tenant_id');
+    const res = await api.get('/api/client/metrics', { params: { tenant_id: tenantId } });
     totalCalls.value = res.data.total_calls || 0;
     totalDuration.value = Math.round((res.data.total_duration || 0) / 60);
     totalCost.value = res.data.total_credits || 0;
+
+    if (res.data.weekly_volume) {
+      chartData.value = {
+        labels: res.data.weekly_volume.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [
+          {
+            label: 'Calls',
+            data: res.data.weekly_volume.data || [0, 0, 0, 0, 0, 0, 0],
+            borderColor: 'hsl(217.2 91.2% 59.8%)',
+            backgroundColor: 'hsla(217.2, 91.2%, 59.8%, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: 'hsl(222.2 84% 4.9%)',
+            pointBorderColor: 'hsl(217.2 91.2% 59.8%)',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          }
+        ]
+      };
+    }
 
     if (res.data.agents && res.data.agents.length > 0) {
       agentChartData.value = {

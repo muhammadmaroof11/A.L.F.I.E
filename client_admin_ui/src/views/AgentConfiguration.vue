@@ -261,6 +261,9 @@ const testVoiceSample = () => {
 };
 
 const getTenantIdFromToken = () => {
+  if (authStore.tenantId) return authStore.tenantId;
+  const storedId = localStorage.getItem('alfie_tenant_id');
+  if (storedId) return storedId;
   const token = localStorage.getItem('alfie_client_token');
   if (!token) return null;
   try {

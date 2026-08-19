@@ -93,7 +93,8 @@ const fetchCallbacks = async () => {
   loading.value = true;
   error.value = '';
   try {
-    const res = await api.get(`/api/client/callbacks?tenant_id=${authStore.user?.tenant_id}`);
+    const tenantId = authStore.tenantId || localStorage.getItem('alfie_tenant_id') || localStorage.getItem('tenant_id');
+    const res = await api.get(`/api/client/callbacks?tenant_id=${tenantId}`);
     callbacks.value = res.data || [];
   } catch (err) {
     console.error(err);
