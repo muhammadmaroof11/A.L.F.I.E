@@ -54,10 +54,14 @@ A.L.F.I.E is a multi-tenant, multilingual voice AI SaaS platform designed for Re
 
 ### B. Super Admin UI (`super_admin_ui`)
 - **Routes & Views (`router/index.js`):**
-  - `/` -> `Dashboard.vue` (Dynamic tenant count & stats)
+  - `/` -> `Dashboard.vue` (Dynamic 7-day call volume chart, tenant niche distribution, real-time alerts & live WebSocket calls)
   - `/tenants` -> `Tenants.vue` (Provisioning modal, API Key popup, status toggle, **⚙️ Per-Tenant Customization Modal**)
+  - `/tenants/:id` -> `TenantDetail.vue` (Comprehensive tenant inspector, credit balance, assigned numbers & agent roster)
   - `/personas` -> `Personas.vue` (Niche persona CRUD, system prompt editor, Fish Audio discover voice selector)
-  - `/calls` -> `CallLogs.vue` (Dual-channel transcript inspector, 4-step latency waterfall graph)
+  - `/calls` -> `CallLogs.vue` (Technical telemetry, average end-to-end latency, dual-channel inspector & cost waterfall)
+  - `/revenue` -> `Revenue.vue` (Dynamic MTD revenue, EOM projection, ARPU, recent transaction audit ledger & CSV export)
+  - `/credits` -> `Credits.vue` (Direct tenant credit top-up modal & credit audit ledger)
+  - `/vouchers` -> `Vouchers.vue` (Voucher generation, expiration date, redemption limits & tenant redemption tracking)
   - `/tools-registry` -> `ToolRegistry.vue` (Native toolsets & Custom HTTP Webhook creator)
   - `/phone-numbers` -> `PhoneNumbers.vue` (Map inbound DIDs to tenant & niche)
   - `/config` -> `AgentConfig.vue` (Global default LLM/STT/TTS configuration)

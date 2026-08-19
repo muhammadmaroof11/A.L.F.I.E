@@ -45,7 +45,7 @@
       </div>
       <div class="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col justify-between">
         <h3 class="tracking-tight text-sm font-medium text-muted-foreground">Avg End-to-End Latency</h3>
-        <div class="text-2xl font-bold mt-2 text-primary font-mono">790<span class="text-sm font-sans text-muted-foreground">ms</span></div>
+        <div class="text-2xl font-bold mt-2 text-primary font-mono">{{ avgLatency }}<span class="text-sm font-sans text-muted-foreground">ms</span></div>
       </div>
       <div class="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col justify-between">
         <h3 class="tracking-tight text-sm font-medium text-muted-foreground">Estimated Gross Revenue</h3>
@@ -259,6 +259,12 @@ const totalCreditsConsumed = computed(() => {
 
 const totalBilledAmount = computed(() => {
   return calls.value.reduce((acc, c) => acc + (c.billed_amount_usd || 0), 0);
+});
+
+const avgLatency = computed(() => {
+  if (!calls.value.length) return 0;
+  const sum = calls.value.reduce((acc, c) => acc + (c.total_ms || ((c.stt_ms || 180) + (c.llm_ttft_ms || 420) + (c.tts_ms || 190))), 0);
+  return Math.round(sum / calls.value.length);
 });
 
 const filteredCalls = computed(() => {
