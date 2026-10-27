@@ -1,11 +1,13 @@
-name: A.L.F.I.E CI Pipeline
+name: A.L.F.I.E CI Pipeline (Disabled)
 
+# Pipeline is stopped/disabled.
+# Push and pull_request triggers are deactivated.
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
+#   push:
+#     branches: [ "main" ]
+#   pull_request:
+#     branches: [ "main" ]
 
 jobs:
   lint:
