@@ -1,6 +1,5 @@
 import logging
 import httpx
-import json
 from livekit.agents import llm
 from typing import Annotated
 

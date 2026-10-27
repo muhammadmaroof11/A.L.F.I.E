@@ -6,7 +6,10 @@ import json
 import random
 from datetime import datetime, timedelta, timezone
 
-dsn = "postgresql://postgres:alfie_secure_postgres_pass@localhost:5432/twenty_db"
+dsn = os.getenv(
+    "TELEMETRY_DB_DSN",
+    "postgresql://postgres:alfie_secure_postgres_pass@localhost:5432/alfie_db",
+)
 
 
 async def seed():
@@ -16,21 +19,22 @@ async def seed():
     # 1. Niches
     await conn.execute("TRUNCATE TABLE alfie_niches RESTART IDENTITY CASCADE;")
     await conn.execute("""
-        INSERT INTO alfie_niches (niche_key, display_name, category, system_prompt_template)
+        INSERT INTO alfie_niches (niche_key, display_name, category, description)
         VALUES 
-        ('real_estate', 'Real Estate', 'general', 'You are a real estate agent...'),
-        ('car_rental', 'Car Rental', 'general', 'You are a car rental agent...'),
-        ('medical', 'Medical Clinic', 'healthcare', 'You are a medical receptionist...'),
-        ('hvac', 'HVAC & Plumbing', 'home_services', 'You are a dispatcher...')
+        ('real_estate', 'Real Estate Brokerage', 'property', 'Luxury property showings and buyer qualification'),
+        ('car_rental', 'Luxury Fleet & Chauffeur', 'transport', 'Point-to-point quotes and VIP airport transfers'),
+        ('legal', 'Personal Injury Law', 'legal', '24/7 high-value tort intake and partner phone bridges'),
+        ('medical', 'Medical & Dental Clinic', 'healthcare', 'Insurance carrier validation and patient appointments'),
+        ('hospitality', 'Fine Dining Concierge', 'hospitality', 'Michelin dining table availability and reservations')
     """)
     print("Seeded niches.")
 
     # 2. Tenants
     await conn.execute("TRUNCATE TABLE alfie_tenants CASCADE;")
 
-    tenant_1 = str(uuid.uuid4())
-    tenant_2 = str(uuid.uuid4())
-    tenant_3 = str(uuid.uuid4())
+    tenant_1 = uuid.uuid4()
+    tenant_2 = uuid.uuid4()
+    tenant_3 = uuid.uuid4()
 
     await conn.execute(
         """
@@ -54,10 +58,13 @@ async def seed():
     await conn.execute("""
         INSERT INTO alfie_personas (niche_name, system_prompt, voice_id)
         VALUES 
-        ('real_estate', 'ROLE: Premium Real Estate Support.', 'voice_1'),
-        ('car_rental', 'ROLE: Professional Car Rental.', 'voice_2'),
-        ('medical', 'ROLE: Medical Receptionist.', 'voice_3')
+        ('real_estate', 'ROLE: Premium Real Estate Support.', '224a2257dd4943209a683d27a5e41439'),
+        ('car_rental', 'ROLE: Professional Car Rental & Luxury Transport.', '224a2257dd4943209a683d27a5e41439'),
+        ('legal', 'ROLE: 24/7 Personal Injury Legal Intake Specialist.', '224a2257dd4943209a683d27a5e41439'),
+        ('medical', 'ROLE: Clinical Patient Coordinator & Front-Desk Reception Specialist.', '224a2257dd4943209a683d27a5e41439'),
+        ('hospitality', 'ROLE: Head Dining Concierge & VIP Hospitality Host.', '224a2257dd4943209a683d27a5e41439')
     """)
+    print("Seeded personas.")
 
     # 4. Phone Numbers
     await conn.execute("TRUNCATE TABLE alfie_phone_numbers RESTART IDENTITY CASCADE;")
@@ -73,6 +80,7 @@ async def seed():
         tenant_2,
         tenant_3,
     )
+    print("Seeded phone numbers.")
 
     # 5. Call Recordings & QA
     await conn.execute("TRUNCATE TABLE alfie_call_recordings CASCADE;")

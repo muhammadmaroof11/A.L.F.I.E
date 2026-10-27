@@ -1,0 +1,74 @@
+{
+    email admin@alfie-ai.com
+}
+
+# Backend API & WebSocket Ingress
+{$API_DOMAIN:api.alfie-ai.com} {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+
+    # WebSocket telemetry & live channels
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websocket alfie-api:8000
+
+    # API routes & Prometheus metrics
+    reverse_proxy /api/* alfie-api:8000
+    reverse_proxy /metrics alfie-api:8000
+    reverse_proxy /docs alfie-api:8000
+    reverse_proxy /openapi.json alfie-api:8000
+    reverse_proxy / alfie-api:8000
+}
+
+# Super Admin UI
+{$ADMIN_DOMAIN:admin.alfie-ai.com} {
+    encode zstd gzip
+    root * /srv/super_admin_ui
+    file_server
+    try_files {path} /index.html
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+# Client Admin Portal
+{$PORTAL_DOMAIN:portal.alfie-ai.com} {
+    encode zstd gzip
+    root * /srv/client_admin_ui
+    file_server
+    try_files {path} /index.html
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+# Marketing & Public Demo Website
+{$APP_DOMAIN:alfie-ai.com} {
+    encode zstd gzip
+    root * /srv/alfie_website
+    file_server
+    try_files {path} /index.html
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+

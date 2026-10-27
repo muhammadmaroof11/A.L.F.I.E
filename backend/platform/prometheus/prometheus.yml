@@ -6,7 +6,6 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'alfie-agent'
+  - job_name: 'alfie-api'
     static_configs:
-      - targets: ['alfie-agent:8000']
-        # Traefik routing or direct internal routing
+      - targets: ['alfie-api:8000']

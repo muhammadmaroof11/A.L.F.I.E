@@ -1,11 +1,15 @@
-import logging
+from datetime import datetime, timezone
+import html
 import json
+import logging
+import re
+from typing import Optional
 import uuid
+
+from fastapi import APIRouter, HTTPException, Response
 import httpx
-from datetime import datetime
-from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+
 from config import settings
 
 logger = logging.getLogger("webchat")
@@ -71,10 +75,6 @@ async def init_chat_session(req: InitChatSessionRequest):
             "status": "chatting",
             "greeting": f"Hello! Welcome to {tenant['name']}. How can I assist you today?",
         }
-
-
-import html
-import re
 
 # Known prompt injection & jailbreak trigger patterns
 JAILBREAK_PATTERNS = [
@@ -269,14 +269,14 @@ Early in the conversation (within the first 2 turns), politely ask the user for 
             {
                 "role": "user",
                 "content": clean_msg,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
         history.append(
             {
                 "role": "assistant",
                 "content": clean_reply,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -359,9 +359,6 @@ async def get_chat_history(session_id: str):
         d = dict(session)
         d["history"] = json.loads(d["history_json"]) if d.get("history_json") else []
         return d
-
-
-from fastapi import Response
 
 
 @router.get("/widget.js")

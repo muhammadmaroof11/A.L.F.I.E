@@ -29,6 +29,7 @@ export default function ScrollReveal({
           delay: delay,
           stagger: stagger,
           ease: 'power3.out',
+          clearProps: 'transform',
           scrollTrigger: {
             trigger: el,
             start: 'top 88%',

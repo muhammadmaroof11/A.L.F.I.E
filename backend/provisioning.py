@@ -1,14 +1,24 @@
 import uuid
 import secrets
-from passlib.context import CryptContext
+import bcrypt
 from telemetry import _pool
 import json
 import logging
 
 logger = logging.getLogger("provisioning")
 
-# Use bcrypt for hashing API keys (similar to password hashing)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_secret(secret: str) -> str:
+    """Hash secret or password using standard bcrypt with 72-byte truncation."""
+    return bcrypt.hashpw(secret.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_secret(secret: str, hashed: str) -> bool:
+    """Verify secret or password using standard bcrypt."""
+    try:
+        return bcrypt.checkpw(secret.encode("utf-8")[:72], hashed.encode("utf-8"))
+    except Exception:
+        return False
 
 
 class ProvisioningError(Exception):
@@ -36,10 +46,10 @@ async def create_tenant(
     raw_api_key = f"alfie_live_{tenant_id}.{raw_secret}"
 
     # Hash the secret for secure storage
-    hashed_api_key = pwd_context.hash(raw_secret)
+    hashed_api_key = hash_secret(raw_secret)
 
     # Hash the password for login
-    hashed_password = pwd_context.hash(password)
+    hashed_password = hash_secret(password)
 
     try:
         async with _pool.acquire() as conn:
@@ -85,7 +95,7 @@ async def verify_api_key(api_key: str) -> dict:
     Returns the tenant dictionary if valid, or None if invalid.
     """
     if not _pool:
-        raise ProvisioningError("Database pool not initialized.")
+        return None
 
     if not api_key.startswith("alfie_live_") or "." not in api_key:
         return None
@@ -102,7 +112,7 @@ async def verify_api_key(api_key: str) -> dict:
                 uuid.UUID(tenant_id_str),
             )
 
-            if record and pwd_context.verify(raw_secret, record["api_key_hash"]):
+            if record and verify_secret(raw_secret, record["api_key_hash"]):
                 return dict(record)
     except ValueError:
         return None
@@ -118,7 +128,7 @@ async def verify_email_password(email: str, password: str) -> dict:
     Returns the tenant dictionary if valid, or None if invalid.
     """
     if not _pool:
-        raise ProvisioningError("Database pool not initialized.")
+        return None
 
     try:
         async with _pool.acquire() as conn:
@@ -130,7 +140,7 @@ async def verify_email_password(email: str, password: str) -> dict:
             if (
                 record
                 and record["password_hash"]
-                and pwd_context.verify(password, record["password_hash"])
+                and verify_secret(password, record["password_hash"])
             ):
                 return dict(record)
     except Exception as e:

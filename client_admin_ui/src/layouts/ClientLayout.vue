@@ -28,6 +28,17 @@
           Dashboard
         </router-link>
         
+        <router-link to="/live-calls" class="flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-all hover:bg-muted/50 text-muted-foreground hover:text-foreground" active-class="bg-primary/10 text-primary hover:bg-primary/15 border-l-2 border-primary shadow-[inset_0_0_20px_hsl(var(--primary)/0.05)]">
+          <div class="flex items-center gap-3">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            Live Calls
+          </div>
+          <span class="flex h-2 w-2 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+        </router-link>
+
         <router-link to="/leads" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all hover:bg-muted/50 text-muted-foreground hover:text-foreground" active-class="bg-primary/10 text-primary hover:bg-primary/15 border-l-2 border-primary shadow-[inset_0_0_20px_hsl(var(--primary)/0.05)]">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
           Leads Pipeline
@@ -53,6 +64,11 @@
         <router-link to="/agents" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all hover:bg-muted/50 text-muted-foreground hover:text-foreground" active-class="bg-primary/10 text-primary hover:bg-primary/15 border-l-2 border-primary shadow-[inset_0_0_20px_hsl(var(--primary)/0.05)]" :class="{ 'bg-primary/10 text-primary border-l-2 border-primary': $route.path.startsWith('/agents') }">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
           Agents Roster
+        </router-link>
+
+        <router-link to="/phone-numbers" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all hover:bg-muted/50 text-muted-foreground hover:text-foreground" active-class="bg-primary/10 text-primary hover:bg-primary/15 border-l-2 border-primary shadow-[inset_0_0_20px_hsl(var(--primary)/0.05)]">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          Phone Numbers
         </router-link>
 
         <router-link to="/billing" class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all hover:bg-muted/50 text-muted-foreground hover:text-foreground" active-class="bg-primary/10 text-primary hover:bg-primary/15 border-l-2 border-primary shadow-[inset_0_0_20px_hsl(var(--primary)/0.05)]">
@@ -85,7 +101,13 @@
           {{ $route.name || 'Dashboard' }}
         </div>
         
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
+          <!-- Voice Agent Test Button -->
+          <button @click="showSimulator = true" class="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 rounded-full text-xs font-medium transition-all shadow-[0_0_12px_hsl(var(--primary)/0.2)]">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            <span>Test Voice Agent</span>
+          </button>
+
           <!-- Theme Toggle -->
           <button @click="toggleTheme" class="inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-muted text-foreground border border-border/50 bg-background/50 backdrop-blur-sm">
             <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -98,7 +120,6 @@
           </div>
           
           <button class="inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors border border-border/50 bg-background/50 backdrop-blur-sm hover:bg-muted text-foreground relative">
-             <!-- Notification Dot -->
             <span class="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_5px_hsl(var(--primary))] animate-pulse"></span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
           </button>
@@ -112,6 +133,9 @@
         </div>
       </div>
     </main>
+
+    <!-- In-Browser Voice Simulator Modal -->
+    <VoiceSimulatorModal :isOpen="showSimulator" @close="showSimulator = false" />
   </div>
 </template>
 
@@ -119,10 +143,12 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useRouter } from 'vue-router';
+import VoiceSimulatorModal from '../components/VoiceSimulatorModal.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
 const isDark = ref(true);
+const showSimulator = ref(false);
 
 const toggleTheme = () => {
   isDark.value = !isDark.value;

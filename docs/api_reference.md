@@ -358,7 +358,7 @@ Check loyalty points, tier, and rewards.
     "city": "Islamabad",
     "area": "DHA Phase 2",
     "price": 35000000,
-    "currency": "PKR"
+    "currency": "USD"
   },
   "lead": {
     "id": "66c...",
@@ -391,7 +391,7 @@ Check loyalty points, tier, and rewards.
     "return_date": "2026-08-14",
     "total_days": 4,
     "total_cost": 28400,
-    "currency": "PKR",
+    "currency": "USD",
     "status": "confirmed"
   },
   "vehicle": {

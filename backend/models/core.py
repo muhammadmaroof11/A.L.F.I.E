@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class MongoBaseModel(BaseModel):
@@ -43,7 +43,7 @@ class AgentConfig(BaseModel):
     stt_config: STTConfig
     llm_config: LLMConfig
     supported_languages: List[str]
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ToolRegistryEntry(BaseModel):
@@ -54,7 +54,7 @@ class ToolRegistryEntry(BaseModel):
     parameters_schema: Dict[str, Any]
     config: Optional[Dict[str, Any]] = None
     filler_phrases: Optional[Dict[str, str]] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class LeadQualification(BaseModel):
@@ -77,8 +77,8 @@ class Lead(BaseModel):
     lead_score: str = "cold"  # hot, warm, cold, dormant
     status: str = "active"
     interaction_history: List[Dict[str, Any]] = []
-    first_contact: datetime = Field(default_factory=datetime.utcnow)
-    last_contact: datetime = Field(default_factory=datetime.utcnow)
+    first_contact: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_contact: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CallMetrics(BaseModel):
@@ -99,7 +99,7 @@ class CallSession(BaseModel):
     niche_context: str
     status: str = "in_progress"
     disposition: Optional[str] = None
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     ended_at: Optional[datetime] = None
     duration_seconds: int = 0
     total_turns: int = 0

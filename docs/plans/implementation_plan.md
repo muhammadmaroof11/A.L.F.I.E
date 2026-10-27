@@ -6,7 +6,7 @@
 
 ## Architecture: Modular Multi-Niche Platform
 
-The codebase is organized into **platform core** (niche-agnostic) and **niche modules** (pluggable per vertical). See [data_model.md](file:///e:/Me/A.L.F.I.E/plans/data_model.md) for the full schema.
+The codebase is organized into **platform core** (niche-agnostic) and **niche modules** (pluggable per vertical). See [data_model.md](data_model.md) for the full schema.
 
 ---
 

@@ -1,6 +1,6 @@
 from typing import List, Optional
 from pydantic import Field
-from datetime import datetime
+from datetime import datetime, timezone
 from .core import MongoBaseModel
 
 
@@ -8,25 +8,22 @@ class PropertyAmenities(MongoBaseModel):
     parking: int = 0
     garden: bool = False
     servant_quarter: bool = False
-    central_heating: bool = False
-    security: str = "none"
-    gas: bool = False
-    electricity_backup: str = "none"
+    swimming_pool: bool = False
+    furnished: bool = False
+    gym: bool = False
 
 
 class Property(MongoBaseModel):
+    property_id: str
     title: str
-    description: str
-    city: str
-    area: str
-    neighborhood_id: Optional[str] = None
-    property_type: str  # house, apartment, plot
-    bedrooms: int = 0
-    bathrooms: int = 0
+    property_type: str  # apartment, villa, commercial, plot
+    location: str
+    city: str = "Dubai"
+    bedrooms: int
+    bathrooms: int
     area_sqft: float
-    area_marla: float
-    price: float
-    currency: str = "PKR"
+    price_aed: float
+    price_usd: Optional[float] = None
     price_per_sqft: Optional[float] = None
     listing_url: Optional[str] = None
     images: List[str] = []
@@ -34,8 +31,8 @@ class Property(MongoBaseModel):
     status: str = "available"
     featured: bool = False
     agent_notes: Optional[str] = None
-    listed_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    listed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class REBooking(MongoBaseModel):
@@ -51,4 +48,4 @@ class REBooking(MongoBaseModel):
     status: str = "scheduled"
     notes: Optional[str] = None
     admin_notified: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

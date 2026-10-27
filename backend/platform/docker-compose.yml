@@ -188,7 +188,7 @@ services:
     environment:
       - TWENTY_API_URL=http://twenty-server:3000
       - N8N_WEBHOOK_URL=http://n8n-main:5678/webhook/alfie-events
-      - TELEMETRY_DB_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/twenty_db
+      - TELEMETRY_DB_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/alfie_db
     networks:
       - alfie_network
     depends_on:
@@ -210,7 +210,7 @@ services:
     environment:
       - TWENTY_API_URL=http://twenty-server:3000
       - N8N_WEBHOOK_URL=http://n8n-main:5678/webhook/alfie-events
-      - TELEMETRY_DB_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/twenty_db
+      - TELEMETRY_DB_DSN=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/alfie_db
     networks:
       - alfie_network
     depends_on:

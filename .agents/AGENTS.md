@@ -25,10 +25,12 @@ This file specifies project-level rules that MUST be strictly followed by all AI
 
 ---
 
-## Rule 4: Cross-Device Agent Sync (`.sync/` Folder)
-- **Sync Folder Location:** `.sync/` in the project root (committed to Git).
-- **Mandatory First Action:** At the start of ANY new session, the agent MUST read `.sync/HANDOFF.md` to understand what the previous agent (on any device) was doing, what's in progress, and what's next.
-- **Mandatory Last Action:** Before the user switches devices or ends a significant work session, update `.sync/HANDOFF.md` with current progress, blockers, and next steps.
-- **Task Tracking:** `.sync/TASKS.md` is the single source of truth for project progress. Update it as tasks are completed.
-- **Decision Log:** `.sync/DECISIONS.md` contains all resolved decisions. Never re-ask a question that's already answered there. Add new decisions as they are made.
-- **Device Routing:** Read `.sync/DEVICES.md` to understand hardware capabilities. Route GPU-heavy tasks (Blender, model generation) to the Office Desktop.
+## Rule 4: Fail-Fast & Transparent Reporting
+- **Rule File:** `.agents/rules/fail-fast-inform.md`
+- **Mandatory Action:** On the first failure of any tool, command, or approach, immediately inform the user with the exact error and alternatives. Never attempt silent workaround chains, run dozens of blind scripts, or fabricate unverified results.
+
+---
+
+## Rule 5: Prompt Enhancement, Skill Routing & Workflow Orchestration
+- **Rule File:** `.agents/rules/prompt-orchestration.md`
+- **Mandatory Action:** Automatically decompose every user prompt into its target stack layer, auto-activate matching skills (`interface-design`, `no-slop-ui`, `motion-framer`, `chrome-devtools`, `codegraph`, `deanchor`), dispatch relevant MCP tools (`context7`, `chrome-devtools-mcp`, `github`, `git`, `figma`), and follow the 5-phase execution lifecycle (Enhance → Explore → Execute → Verify → Sync STATE.md).

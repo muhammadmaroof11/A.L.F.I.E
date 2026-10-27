@@ -22,8 +22,6 @@ class HospitalityTools(llm.Toolset):
             f"[{self.tenant_id}] Checking availability for party of {party_size} on {date} at {time}"
         )
 
-        from datetime import datetime
-
         try:
             datetime.strptime(date, "%Y-%m-%d")
         except ValueError:

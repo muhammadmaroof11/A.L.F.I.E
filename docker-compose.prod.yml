@@ -1,0 +1,27 @@
+# Production Compose Override for A.L.F.I.E
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# This override strips all host port exposures from internal database, cache, model, and metrics services.
+
+services:
+  postgres:
+    ports: []
+
+  redis:
+    ports: []
+
+  alfie-mongodb:
+    deploy:
+      replicas: 0
+    ports: []
+
+  litellm:
+    ports: []
+
+  llmlingua:
+    ports: []
+
+  prometheus:
+    ports: []
+
+  grafana:
+    ports: []

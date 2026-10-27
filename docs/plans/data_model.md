@@ -454,7 +454,7 @@ Every inbound/outbound call session. Niche-agnostic — works for any vertical.
   "call_id": "alfie-call-f7a2b9c1",
   "room_name": "alfie-call-f7a2b9c1",
   "direction": "inbound",
-  "caller_number": "+923211234567",
+  "caller_number": "+12025550123",
   "detected_language": "ur",
   "niche_context": "real_estate",
   "status": "completed",
@@ -477,7 +477,7 @@ Every inbound/outbound call session. Niche-agnostic — works for any vertical.
     "context_prunes_count": 0
   },
   "sentiment": "positive",
-  "summary": "Caller looking for 3BR house in DHA Islamabad, budget 30-40M PKR. Booked viewing for tomorrow 2PM. Lead captured.",
+  "summary": "Caller looking for 3BR house in Metro Area, budget $1.5M-$2M. Booked viewing for tomorrow 2PM. Lead captured.",
   "tags": ["qualified", "booking_made", "high_intent"]
 }
 ```
@@ -557,9 +557,9 @@ Unified lead management across all niches. The `interests` object is niche-flexi
   "_id": "ObjectId",
   "tenant_id": "alfie_realty_pk",
   "call_id": "ObjectId → calls._id (first contact)",
-  "name": "Ahmed Khan",
-  "phone": "+923211234567",
-  "email": "ahmed.khan@email.com",
+  "name": "Alex Mercer",
+  "phone": "+12025550123",
+  "email": "alex.mercer@example.com",
   "preferred_language": "ur",
   "niche": "real_estate",
   "interests": {
@@ -571,7 +571,7 @@ Unified lead management across all niches. The `interests` object is niche-flexi
       "max_price": 45000000,
       "property_type": "house"
     },
-    "notes": "Relocating from Lahore, needs possession within 2 months"
+    "notes": "Relocating from out of state, needs possession within 2 months"
   },
   "qualification": {
     "budget_confirmed": true,
@@ -786,16 +786,16 @@ Area intelligence the agent can reference during calls.
   "call_id": "ObjectId → calls._id",
   "property_id": "ObjectId → properties._id",
   "lead_id": "ObjectId → leads._id",
-  "customer_name": "Ahmed Khan",
-  "customer_phone": "+923211234567",
-  "customer_email": "ahmed.khan@email.com",
+  "customer_name": "Alex Mercer",
+  "customer_phone": "+12025550123",
+  "customer_email": "alex.mercer@example.com",
   "viewing_date": "2026-08-05T00:00:00Z",
   "time_slot": "2:00 PM - 2:30 PM",
-  "assigned_agent": "Bilal Ahmed",
-  "agent_phone": "+923009876543",
+  "assigned_agent": "Jordan Reed",
+  "agent_phone": "+12025550199",
   "status": "scheduled",
   "type": "in_person",
-  "notes": "Caller relocating from Lahore, interested in possession timeline",
+  "notes": "Caller relocating from out of state, interested in possession timeline",
   "reminder_sent": false,
   "feedback": null,
   "admin_notified": true,
@@ -863,7 +863,7 @@ Area intelligence the agent can reference during calls.
   "excess_mileage_rate": 15,
   "next_service_date": "2026-09-01T00:00:00Z",
   "min_driver_age": 21,
-  "required_documents": ["cnic", "driving_license"],
+  "required_documents": ["national_id", "driving_license"],
   "deposit_amount": 15000,
   "created_at": "2026-06-01T00:00:00Z"
 }
@@ -911,7 +911,7 @@ Area intelligence the agent can reference during calls.
   "lead_id": "ObjectId → leads._id",
   "confirmation_number": "AR-2026-08-001",
   "customer_name": "Sara Ahmed",
-  "customer_phone": "+923211234567",
+  "customer_phone": "+12025550123",
   "customer_email": "sara@email.com",
   "license_number": "ISB-DL-12345",
   "driver_age": 28,

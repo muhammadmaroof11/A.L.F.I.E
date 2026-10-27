@@ -1,19 +1,23 @@
+import asyncio
 import logging
 import json
+import uuid
 
 try:
     import asyncpg
 except ImportError:
     asyncpg = None
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from config import settings
 
 logger = logging.getLogger("telemetry")
 
+DB_ERRORS = (asyncpg.PostgresError, asyncpg.InterfaceError) if asyncpg else (Exception,)
+
 # Module-level singleton pool — shared across ALL concurrent calls.
 # Initialized once at agent startup via init_telemetry_pool().
-_pool = None
+_pool: Any = None
 
 # Callback for real-time WebSocket streaming
 _broadcast_callback = None
@@ -47,7 +51,7 @@ try:
 except ImportError:
     redis = None
 
-_redis_pool = None
+_redis_pool: Any = None
 
 
 async def init_redis_pool():
@@ -63,298 +67,22 @@ async def init_redis_pool():
             logger.error(f"Failed to initialize Redis pool: {e}")
 
 
-async def get_redis():
+async def get_redis() -> Any:
     return _redis_pool
 
 
 async def init_db_schema():
-    """Create the necessary telemetry and provisioning tables if they don't exist."""
+    """Create and update database schema idempotently using the versioned migration ledger."""
     if not _pool:
         return
     try:
+        from migrations import run_migrations
         async with _pool.acquire() as conn:
-            # Table for Super Admin tenant provisioning
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_tenants (
-                    tenant_id UUID PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL,
-                    niche VARCHAR(50) NOT NULL,
-                    status VARCHAR(50) NOT NULL DEFAULT 'active',
-                    credit_limit_usd DECIMAL(10, 2) NOT NULL DEFAULT 50.00,
-                    api_key_hash VARCHAR(255) NOT NULL,
-                    email VARCHAR(255) UNIQUE,
-                    password_hash VARCHAR(255),
-                    tenant_config JSONB DEFAULT '{}',
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Ensure the columns exist if the table was already created
-            await conn.execute("""
-                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;
-                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
-                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS tenant_config JSONB DEFAULT '{}';
-                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR(50) DEFAULT 'payg';
-                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'active';
-                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS subscription_cycle_end TIMESTAMP WITH TIME ZONE;
-                ALTER TABLE alfie_tenants ADD COLUMN IF NOT EXISTS included_minutes_balance INTEGER DEFAULT 0;
-            """)
-
-            # Table for high-speed agent telemetry logs
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_telemetry (
-                    id SERIAL PRIMARY KEY,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    call_id VARCHAR(255) NOT NULL,
-                    event_type VARCHAR(255) NOT NULL,
-                    data JSONB NOT NULL,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for billing metrics
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_usage (
-                    id SERIAL PRIMARY KEY,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    call_id VARCHAR(255) NOT NULL,
-                    duration_seconds INTEGER NOT NULL,
-                    credits_consumed DECIMAL(10, 4) NOT NULL,
-                    processed BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Ensure the column exists if the table was already created
-            await conn.execute("""
-                ALTER TABLE alfie_usage ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT FALSE;
-            """)
-            # Table for global Agent Configs
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_global_config (
-                    key VARCHAR(255) PRIMARY KEY,
-                    value JSONB NOT NULL,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Persona / Niche Configurations
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_personas (
-                    id SERIAL PRIMARY KEY,
-                    niche_name VARCHAR(255) NOT NULL UNIQUE,
-                    system_prompt TEXT NOT NULL,
-                    voice_id VARCHAR(255),
-                    example_conversation TEXT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Seed default personas if table is newly initialized
-            count = await conn.fetchval("SELECT COUNT(*) FROM alfie_personas;")
-            if count == 0:
-                await conn.execute("""
-                    INSERT INTO alfie_personas (niche_name, system_prompt, voice_id, example_conversation)
-                    VALUES 
-                    ('real_estate', 'ROLE: Premium Real Estate Support & Sales Agent.\nPERSONA: Calm, professional, trust-winning.\n\nQUALIFICATION:\n1. Qualify quickly: Preferred location, property type (house/apartment/plot), and budget.\n2. Use your tools to check inventory and book site visits or meetings.', '224a2257dd4943209a683d27a5e41439', 'User: Hi, I am looking for a 3-bedroom house in Lahore.\nAgent: Hello! I would be happy to help you find a 3-bedroom house in Lahore. What is your approximate budget range?'),
-                    ('car_rental', 'ROLE: Professional Car Rental Booking Assistant.\nPERSONA: Efficient, courteous, detail-oriented.\n\nTASKS:\n1. Check vehicle availability (SUV, sedan, luxury).\n2. Quote rates and deposit requirements.\n3. Book vehicle reservations using available tools.', '224a2257dd4943209a683d27a5e41439', 'User: Hi, I need to rent a SUV for 3 days starting tomorrow.\nAgent: Welcome! I can assist you with an SUV reservation. Could you confirm your pickup location and preferred return date?'),
-                    ('demo', 'ROLE: A.L.F.I.E Flagship Voice AI Interactive Demo & Sales Agent.\nPERSONA: Articulate, warm, confident, fast-paced, multilingual (English, Urdu, Arabic).\n\nTASKS:\n1. Showcase real-time conversational capabilities and sub-second response times.\n2. Demonstrate vertical switching (Real Estate, Car Rental, Legal, Healthcare) and live booking simulations.\n3. Answer questions about CRM, calendar, and telephony integrations.', '224a2257dd4943209a683d27a5e41439', 'User: Hi, what can you do?\nAgent: Hello! I am A.L.F.I.E, an autonomous voice AI platform. I handle customer calls, qualify leads, schedule appointments, and connect directly to your CRM with sub-second response times. What industry is your business in?')
-                    ON CONFLICT (niche_name) DO NOTHING;
-                """)
-
-            # Table for Phone Number (SIP/DID) Mapping
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_phone_numbers (
-                    id SERIAL PRIMARY KEY,
-                    phone_number VARCHAR(50) NOT NULL UNIQUE,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    niche VARCHAR(50) NOT NULL,
-                    provider VARCHAR(50) DEFAULT 'LiveKit SIP',
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Custom Webhook Tools
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_custom_tools (
-                    id SERIAL PRIMARY KEY,
-                    tool_name VARCHAR(100) NOT NULL UNIQUE,
-                    description TEXT NOT NULL,
-                    webhook_url TEXT NOT NULL,
-                    http_method VARCHAR(10) DEFAULT 'POST',
-                    parameters_json JSONB DEFAULT '{}',
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Detailed Call Logs, Transcripts, Latency Metrics & QA
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_call_recordings (
-                    call_id VARCHAR(255) PRIMARY KEY,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    niche VARCHAR(50) NOT NULL,
-                    caller_number VARCHAR(50),
-                    duration_seconds INTEGER DEFAULT 0,
-                    transcript JSONB DEFAULT '[]',
-                    sentiment VARCHAR(50) DEFAULT 'positive',
-                    quality_score INTEGER DEFAULT 95,
-                    stt_ms INTEGER DEFAULT 180,
-                    llm_ttft_ms INTEGER DEFAULT 420,
-                    tts_ms INTEGER DEFAULT 210,
-                    total_ms INTEGER DEFAULT 810,
-                    total_tokens INTEGER DEFAULT 0,
-                    cost_usd DECIMAL(10, 4) DEFAULT 0.0000,
-                    interruption_count INTEGER DEFAULT 0,
-                    recording_url TEXT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Ensure columns exist if table was already created
-            await conn.execute("""
-                ALTER TABLE alfie_call_recordings ADD COLUMN IF NOT EXISTS total_tokens INTEGER DEFAULT 0;
-                ALTER TABLE alfie_call_recordings ADD COLUMN IF NOT EXISTS cost_usd DECIMAL(10, 4) DEFAULT 0.0000;
-                ALTER TABLE alfie_call_recordings ADD COLUMN IF NOT EXISTS interruption_count INTEGER DEFAULT 0;
-            """)
-
-            # Table for Billing Rate Cards & Markup
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_rate_cards (
-                    id SERIAL PRIMARY KEY,
-                    tier_name VARCHAR(100) NOT NULL UNIQUE,
-                    stt_rate_per_min DECIMAL(10, 4) DEFAULT 0.025,
-                    llm_rate_per_1k_tokens DECIMAL(10, 4) DEFAULT 0.015,
-                    tts_rate_per_min DECIMAL(10, 4) DEFAULT 0.030,
-                    markup_multiplier DECIMAL(5, 2) DEFAULT 2.50,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Voucher Credits System
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_vouchers (
-                    id SERIAL PRIMARY KEY,
-                    code VARCHAR(100) UNIQUE NOT NULL,
-                    credit_amount_usd DECIMAL(10, 2) NOT NULL,
-                    max_redemptions INTEGER DEFAULT 100,
-                    times_redeemed INTEGER DEFAULT 0,
-                    expires_at TIMESTAMP WITH TIME ZONE,
-                    status VARCHAR(50) DEFAULT 'active',
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Voucher Redemptions Ledger
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_voucher_redemptions (
-                    id SERIAL PRIMARY KEY,
-                    voucher_id INTEGER REFERENCES alfie_vouchers(id) ON DELETE CASCADE,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    code VARCHAR(100) NOT NULL,
-                    amount_usd DECIMAL(10, 2) NOT NULL,
-                    redeemed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Granular Tenant Credit Transactions
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_credit_transactions (
-                    id SERIAL PRIMARY KEY,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    amount_usd DECIMAL(10, 2) NOT NULL,
-                    transaction_type VARCHAR(50) NOT NULL,
-                    description TEXT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Dynamic Custom Vertical Niches Registry
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_niches (
-                    id SERIAL PRIMARY KEY,
-                    niche_key VARCHAR(100) UNIQUE NOT NULL,
-                    display_name VARCHAR(255) NOT NULL,
-                    category VARCHAR(100) DEFAULT 'general',
-                    system_prompt_template TEXT NOT NULL,
-                    default_voice_id VARCHAR(255),
-                    default_tools_json JSONB DEFAULT '[]',
-                    icon VARCHAR(50) DEFAULT 'Sparkles',
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for WebChat Sessions & Context Handoff
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_chat_sessions (
-                    session_id VARCHAR(255) PRIMARY KEY,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    user_phone VARCHAR(50),
-                    user_name VARCHAR(255),
-                    status VARCHAR(50) DEFAULT 'chatting',
-                    history_json JSONB DEFAULT '[]',
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Captured Leads
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_leads (
-                    id SERIAL PRIMARY KEY,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    name VARCHAR(255) NOT NULL,
-                    phone VARCHAR(50) NOT NULL,
-                    email VARCHAR(255),
-                    niche VARCHAR(50) DEFAULT 'general',
-                    status VARCHAR(50) DEFAULT 'new',
-                    notes TEXT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Table for Scheduled Callbacks & Hot-Transfer Fallback
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS alfie_callbacks (
-                    id SERIAL PRIMARY KEY,
-                    tenant_id VARCHAR(255) NOT NULL,
-                    call_id VARCHAR(255),
-                    caller_name VARCHAR(255) NOT NULL,
-                    caller_phone VARCHAR(50) NOT NULL,
-                    target_agent_id VARCHAR(255),
-                    target_department VARCHAR(100),
-                    preferred_time VARCHAR(255),
-                    reason TEXT,
-                    notes TEXT,
-                    priority VARCHAR(50) DEFAULT 'high',
-                    status VARCHAR(50) DEFAULT 'scheduled',
-                    notification_sent BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            # Seed default rate card if empty
-            rc_count = await conn.fetchval("SELECT COUNT(*) FROM alfie_rate_cards;")
-            if rc_count == 0:
-                await conn.execute("""
-                    INSERT INTO alfie_rate_cards (tier_name, stt_rate_per_min, llm_rate_per_1k_tokens, tts_rate_per_min, markup_multiplier)
-                    VALUES ('default', 0.025, 0.015, 0.030, 2.50)
-                    ON CONFLICT DO NOTHING;
-                """)
-
-            # Seed default vouchers if empty
-            v_count = await conn.fetchval("SELECT COUNT(*) FROM alfie_vouchers;")
-            if v_count == 0:
-                await conn.execute("""
-                    INSERT INTO alfie_vouchers (code, credit_amount_usd, max_redemptions, times_redeemed, status)
-                    VALUES 
-                    ('WELCOME50', 50.00, 500, 0, 'active'),
-                    ('BOOST100', 100.00, 100, 0, 'active'),
-                    ('ENTERPRISE500', 500.00, 20, 0, 'active')
-                    ON CONFLICT DO NOTHING;
-                """)
-
-            logger.info("Database schema initialized successfully.")
+            applied = await run_migrations(conn)
+            if applied:
+                logger.info(f"Database schema initialized. Applied migrations: {', '.join(applied)}")
+            else:
+                logger.info("Database schema is up to date.")
     except Exception as e:
         logger.error(f"Failed to initialize database schema: {e}")
 
@@ -372,8 +100,10 @@ async def _write_to_db(tenant_id: str, call_id: str, event_type: str, data: dict
                 event_type,
                 json.dumps(data),
             )
+    except DB_ERRORS as e:
+        logger.error(f"PostgreSQL database error writing telemetry: {e}")
     except Exception as e:
-        logger.error(f"Failed to write telemetry to Postgres: {e}")
+        logger.error(f"Unexpected error writing telemetry to Postgres: {e}")
 
 
 class TelemetryLogger:
@@ -390,7 +120,7 @@ class TelemetryLogger:
             "call_id": self.call_id,
             "event_type": event_type,
             "data": data,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         logger.info(f"TELEMETRY_EVENT: {payload}")
         await _write_to_db(self.tenant_id, self.call_id, event_type, data)
@@ -403,7 +133,7 @@ class TelemetryLogger:
             "tenant_id": self.tenant_id,
             "call_id": self.call_id,
             "metrics": metrics_update,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         logger.info(f"METRICS_UPDATE: {payload}")
         await _write_to_db(
@@ -419,23 +149,35 @@ async def save_callback_record(
     caller_phone: str,
     preferred_time: str,
     reason: str = "Live Transfer Fallback",
-    target_department: str = None,
-    notes: str = None,
-    call_id: str = None,
+    target_department: Optional[str] = None,
+    notes: Optional[str] = None,
+    call_id: Optional[str] = None,
     priority: str = "high",
     notification_sent: bool = True,
+    tcpa_consent_granted: bool = True,
+    tcpa_consent_channel: str = "inbound_voice",
 ) -> Optional[int]:
-    """Insert a callback record into alfie_callbacks table."""
+    """Insert a callback record into alfie_callbacks table with TCPA consent metadata."""
     if not _pool:
         return None
     try:
+        from timezone_guardrails import resolve_phone_timezone, calculate_next_cadence_attempt
+        tz_data = resolve_phone_timezone(caller_phone)
+        recip_tz = tz_data.get("timezone", "America/New_York")
+        recip_state = tz_data.get("state", "US")
+
+        next_attempt_dt, status_label = calculate_next_cadence_attempt(caller_phone, attempt=1)
+        cadence_status = "rescheduled_legal_hours" if status_label == "rescheduled_legal_hours" else "pending"
+
         async with _pool.acquire() as conn:
             callback_id = await conn.fetchval(
                 """
                 INSERT INTO alfie_callbacks (
                     tenant_id, call_id, caller_name, caller_phone, target_department,
-                    preferred_time, reason, notes, priority, status, notification_sent
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'scheduled', $10)
+                    preferred_time, reason, notes, priority, status, notification_sent,
+                    recipient_timezone, recipient_state, cadence_status, next_attempt_at,
+                    attempt_count, max_attempts, tcpa_consent_granted, tcpa_consent_channel
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'scheduled', $10, $11, $12, $13, $14, 0, 3, $15, $16)
                 RETURNING id
                 """,
                 tenant_id,
@@ -448,9 +190,368 @@ async def save_callback_record(
                 notes,
                 priority,
                 notification_sent,
+                recip_tz,
+                recip_state,
+                cadence_status,
+                next_attempt_dt,
+                tcpa_consent_granted,
+                tcpa_consent_channel,
             )
             return callback_id
-    except Exception as e:
-        logger.error(f"Failed to save callback record: {e}")
+    except DB_ERRORS as e:
+        logger.error(f"PostgreSQL error saving callback record: {e}")
         return None
+    except Exception as e:
+        logger.error(f"Unexpected error saving callback record: {e}")
+        return None
+
+
+def _safe_uuid(val: Any) -> Optional[uuid.UUID]:
+    """Safely converts a string or UUID to a valid UUID object or returns None."""
+    if not val:
+        return None
+    if isinstance(val, uuid.UUID):
+        return val
+    if isinstance(val, str) and len(val) == 36:
+        try:
+            return uuid.UUID(val)
+        except Exception:
+            return None
+    return None
+
+
+async def init_call_record(
+    tenant_id: str,
+    call_id: str,
+    caller_number: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    niche: str = "general",
+) -> bool:
+    """Atomically registers an in-progress call in alfie_call_recordings."""
+    if not _pool:
+        return False
+    try:
+        t_uuid = _safe_uuid(tenant_id)
+        a_uuid = _safe_uuid(agent_id)
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO alfie_call_recordings (
+                    call_id, tenant_id, agent_id, caller_number, niche, live_status, started_at
+                ) VALUES ($1, $2, $3, $4, $5, 'in-progress', CURRENT_TIMESTAMP)
+                ON CONFLICT (call_id) DO UPDATE
+                SET live_status = 'in-progress',
+                    caller_number = COALESCE(EXCLUDED.caller_number, alfie_call_recordings.caller_number),
+                    niche = COALESCE(EXCLUDED.niche, alfie_call_recordings.niche);
+                """,
+                call_id,
+                t_uuid,
+                a_uuid,
+                caller_number or "+1 (555) 000-0000",
+                niche or "general",
+            )
+            return True
+    except DB_ERRORS as e:
+        logger.error(f"PostgreSQL error initializing call record {call_id}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error initializing call record {call_id}: {e}")
+        return False
+
+
+async def complete_call_record(
+    call_id: str,
+    tenant_id: str,
+    duration_seconds: int,
+    audio_url: Optional[str] = None,
+    waveform_data: Optional[list] = None,
+    transcript: Optional[list] = None,
+    qa_breakdown: Optional[dict] = None,
+    conversion_status: Optional[str] = None,
+    risk_flag: Optional[bool] = None,
+    risk_reason: Optional[str] = None,
+    dtmf_events: Optional[list] = None,
+    peak_frustration_score: Optional[float] = None,
+    frustration_events: Optional[list] = None,
+) -> bool:
+    """Updates alfie_call_recordings when a call concludes."""
+    if not _pool:
+        return False
+    try:
+        waveform_json = json.dumps(waveform_data or [])
+        transcript_json = json.dumps(transcript or [])
+        qa_json = json.dumps(qa_breakdown or {}) if qa_breakdown is not None else None
+        dtmf_json = json.dumps(dtmf_events or []) if dtmf_events is not None else None
+        frust_json = json.dumps(frustration_events or []) if frustration_events is not None else None
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE alfie_call_recordings
+                SET live_status = 'completed',
+                    duration = $1,
+                    duration_seconds = $1,
+                    ended_at = CURRENT_TIMESTAMP,
+                    audio_url = COALESCE($2, audio_url, recording_url),
+                    recording_url = COALESCE($2, recording_url, audio_url),
+                    waveform_data = $3::jsonb,
+                    transcript = $4::jsonb,
+                    qa_breakdown = COALESCE($5::jsonb, qa_breakdown),
+                    conversion_status = COALESCE($6, conversion_status),
+                    risk_flag = COALESCE($7, risk_flag),
+                    risk_reason = COALESCE($8, risk_reason),
+                    dtmf_events = COALESCE($9::jsonb, dtmf_events),
+                    peak_frustration_score = COALESCE($10, peak_frustration_score),
+                    frustration_events = COALESCE($11::jsonb, frustration_events)
+                WHERE call_id = $12;
+                """,
+                duration_seconds,
+                audio_url,
+                waveform_json,
+                transcript_json,
+                qa_json,
+                conversion_status,
+                risk_flag,
+                risk_reason,
+                dtmf_json,
+                peak_frustration_score,
+                frust_json,
+                call_id,
+            )
+
+            # Phase 20: Outbound Webhook Automation Hub - dispatch call.completed
+            try:
+                from webhook_dispatcher import dispatch_webhook
+                asyncio.create_task(
+                    dispatch_webhook(
+                        tenant_id=str(tenant_id),
+                        event_type="call.completed",
+                        payload={
+                            "call_id": call_id,
+                            "tenant_id": str(tenant_id),
+                            "duration_seconds": duration_seconds,
+                            "audio_url": audio_url,
+                            "conversion_status": conversion_status or "unclassified",
+                            "risk_flag": bool(risk_flag),
+                            "risk_reason": risk_reason or "",
+                            "peak_frustration_score": float(peak_frustration_score or 0.0),
+                            "qa_breakdown": qa_breakdown or {},
+                        },
+                        reference_id=call_id,
+                    )
+                )
+            except Exception as hook_err:
+                logger.warning(f"Failed to dispatch call.completed webhook: {hook_err}")
+
+            return True
+    except DB_ERRORS as e:
+        logger.error(f"PostgreSQL error completing call record {call_id}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error completing call record {call_id}: {e}")
+        return False
+
+
+async def register_active_call(
+    redis_client,
+    tenant_id: str,
+    call_id: str,
+    caller_number: Optional[str] = None,
+    agent_name: Optional[str] = None,
+    niche: Optional[str] = None,
+):
+    """Registers an ongoing call in Redis sets and state hash, and publishes call_started."""
+    if not redis_client:
+        return
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        call_key = f"call_state:{call_id}"
+        call_data = {
+            "call_id": call_id,
+            "tenant_id": str(tenant_id),
+            "caller_number": caller_number or "Unknown",
+            "agent_name": agent_name or "Alfie Voice Agent",
+            "niche": niche or "general",
+            "state": "active",
+            "speaker": "none",
+            "started_at": now_iso,
+            "last_heartbeat": now_iso,
+        }
+        await redis_client.hset(call_key, mapping=call_data)
+        await redis_client.expire(call_key, 3600)
+
+        # Add to tenant and global active sets
+        await redis_client.sadd(f"active_calls:{tenant_id}", call_id)
+        await redis_client.sadd("active_calls:global", call_id)
+
+        # Broadcast call_started event
+        event_payload = {
+            "event": "call_started",
+            **call_data,
+        }
+        json_str = json.dumps(event_payload)
+        await redis_client.publish(f"telemetry:live:{tenant_id}", json_str)
+        await redis_client.publish("telemetry:live:global", json_str)
+    except Exception as e:
+        logger.warning(f"Error registering active call in Redis: {e}")
+
+
+async def update_call_live_state(
+    redis_client,
+    tenant_id: str,
+    call_id: str,
+    state: str,
+    speaker: str = "agent",
+):
+    """Updates the speaker/processing state of an active call and broadcasts state change."""
+    if not redis_client:
+        return
+    try:
+        call_key = f"call_state:{call_id}"
+        await redis_client.hset(
+            call_key,
+            mapping={
+                "state": state,
+                "speaker": speaker,
+                "last_heartbeat": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        event_payload = {
+            "event": "call_state_changed",
+            "call_id": call_id,
+            "tenant_id": str(tenant_id),
+            "state": state,
+            "speaker": speaker,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        json_str = json.dumps(event_payload)
+        await redis_client.publish(f"telemetry:live:{tenant_id}", json_str)
+        await redis_client.publish("telemetry:live:global", json_str)
+    except Exception as e:
+        logger.warning(f"Error updating call live state in Redis: {e}")
+
+
+async def publish_live_transcript_delta(
+    redis_client,
+    tenant_id: str,
+    call_id: str,
+    turn_id: str,
+    role: str,
+    delta: str,
+    is_final: bool = False,
+    offset_ms: int = 0,
+    full_text: Optional[str] = None,
+):
+    """Broadcasts real-time streaming speech tokens to connected admin consoles."""
+    if not redis_client:
+        return
+    try:
+        event_payload = {
+            "event": "transcript_delta",
+            "call_id": call_id,
+            "tenant_id": str(tenant_id),
+            "turn_id": turn_id,
+            "role": role,
+            "delta": delta,
+            "full_text": full_text or delta,
+            "is_final": is_final,
+            "offset_ms": offset_ms,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        json_str = json.dumps(event_payload)
+        await redis_client.publish(f"telemetry:live:{tenant_id}", json_str)
+        await redis_client.publish("telemetry:live:global", json_str)
+    except Exception as e:
+        logger.warning(f"Error publishing live transcript delta to Redis: {e}")
+
+
+async def deregister_active_call(
+    redis_client,
+    tenant_id: str,
+    call_id: str,
+    duration_seconds: int = 0,
+    audio_url: Optional[str] = None,
+):
+    """Cleans up Redis active registry and broadcasts call_ended event."""
+    if not redis_client:
+        return
+    try:
+        await redis_client.srem(f"active_calls:{tenant_id}", call_id)
+        await redis_client.srem("active_calls:global", call_id)
+        await redis_client.delete(f"call_state:{call_id}")
+
+        event_payload = {
+            "event": "call_ended",
+            "call_id": call_id,
+            "tenant_id": str(tenant_id),
+            "duration_seconds": duration_seconds,
+            "audio_url": audio_url,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        json_str = json.dumps(event_payload)
+        await redis_client.publish(f"telemetry:live:{tenant_id}", json_str)
+        await redis_client.publish("telemetry:live:global", json_str)
+    except Exception as e:
+        logger.warning(f"Error deregistering active call in Redis: {e}")
+
+
+async def get_active_calls_for_tenant(redis_client, tenant_id: str) -> list:
+    """Returns all currently active call state dictionaries for a given tenant."""
+    if not redis_client:
+        return []
+    try:
+        call_ids = await redis_client.smembers(f"active_calls:{tenant_id}")
+        active = []
+        for cid in call_ids:
+            state = await redis_client.hgetall(f"call_state:{cid}")
+            if state:
+                active.append(state)
+            else:
+                await redis_client.srem(f"active_calls:{tenant_id}", cid)
+        return active
+    except Exception as e:
+        logger.warning(f"Error retrieving active calls for tenant {tenant_id}: {e}")
+        return []
+
+
+async def get_all_active_calls(redis_client) -> list:
+    """Returns all currently active call states across all tenants for Super Admin."""
+    if not redis_client:
+        return []
+    try:
+        call_ids = await redis_client.smembers("active_calls:global")
+        active = []
+        for cid in call_ids:
+            state = await redis_client.hgetall(f"call_state:{cid}")
+            if state:
+                active.append(state)
+            else:
+                await redis_client.srem("active_calls:global", cid)
+        return active
+    except Exception as e:
+        logger.warning(f"Error retrieving global active calls: {e}")
+        return []
+
+
+def generate_waveform_peaks_synthetic(duration_seconds: int = 60, points: int = 100) -> list:
+    """
+    Generates a realistic 100-point normalized [0.05, 0.95] speech waveform envelope.
+    Simulates speech bursts, pauses, and cadence for call playback and instantaneous UI rendering.
+    """
+    import math
+    import random
+    peaks = []
+    cadence = 0.0
+    for i in range(points):
+        cadence += 0.18
+        base = 0.35 + 0.3 * math.sin(cadence)
+        jitter = random.uniform(-0.15, 0.15)
+        # Conversational speech pause intervals
+        if (i % 14 in [0, 1]) or (i % 23 in [0, 1]):
+            val = max(0.04, random.uniform(0.02, 0.08))
+        else:
+            val = max(0.08, min(0.95, base + jitter))
+        peaks.append(round(val, 3))
+    return peaks
+
+
 

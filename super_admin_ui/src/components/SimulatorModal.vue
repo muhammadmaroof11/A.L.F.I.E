@@ -22,8 +22,12 @@
           <div>
             <label class="form-label">Select Persona / Niche to Test</label>
             <select class="form-input" v-model="selectedNiche" :disabled="isConnected">
+              <option value="legal">Personal Injury Law (legal)</option>
+              <option value="clinic">Medical & Dental Clinic (clinic)</option>
               <option value="real_estate">Real Estate Agent (real_estate)</option>
-              <option value="car_rental">Car Rental Booking (car_rental)</option>
+              <option value="car_rental">Luxury Fleet & Chauffeur (car_rental)</option>
+              <option value="hospitality">Michelin Hospitality & Dining (hospitality)</option>
+              <option value="demo">A.L.F.I.E Voice AI Showcase (demo)</option>
               <option v-for="persona in personas" :key="persona.id" :value="persona.niche_name">
                 {{ persona.niche_name }}
               </option>
@@ -99,7 +103,8 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { Room, RoomEvent, Track } from 'livekit-client';
 import api from '../services/api';
 
 const props = defineProps({
@@ -115,6 +120,9 @@ const connecting = ref(false);
 const isConnected = ref(false);
 const isSpeaking = ref(false);
 const messages = ref([]);
+
+let roomInstance = null;
+let activeAudioElements = [];
 
 const fetchPersonas = async () => {
   try {
@@ -134,23 +142,71 @@ const startSession = async () => {
       niche: selectedNiche.value
     });
 
+    const token = res.data.token;
+    const wsUrl = res.data.url || 'wss://alfie-ai-9ngpqe5q.livekit.cloud';
+
+    const room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+    });
+    roomInstance = room;
+
+    room.on(RoomEvent.TrackSubscribed, (track) => {
+      if (track.kind === Track.Kind.Audio) {
+        const el = track.attach();
+        el.autoplay = true;
+        document.body.appendChild(el);
+        activeAudioElements.push(el);
+        isSpeaking.value = true;
+      }
+    });
+
+    room.on(RoomEvent.TrackUnsubscribed, (track) => {
+      track.detach().forEach(el => el.remove());
+    });
+
+    room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+      const isAgent = speakers.some(s => !s.isLocal);
+      isSpeaking.value = isAgent;
+    });
+
+    room.on(RoomEvent.Disconnected, () => {
+      stopSession();
+    });
+
+    await room.connect(wsUrl, token);
+    await room.localParticipant.setMicrophoneEnabled(true);
+
     isConnected.value = true;
     connecting.value = false;
-    isSpeaking.value = true;
 
-    // Simulated transcript streaming for interactive testing
     messages.value = [
-      { speaker: 'System', text: `Connected WebRTC stream to LiveKit room [${roomName.value}] for persona [${selectedNiche.value}].` },
-      { speaker: 'Agent', text: 'Hello! I am ready to assist you. How can I help you today?' }
+      { speaker: 'System', text: `WebRTC stream active in room [${roomName.value}] for persona [${selectedNiche.value}]. Microphone enabled.` },
     ];
 
   } catch (err) {
-    alert('Failed to connect WebRTC session.');
+    console.error('Failed to connect WebRTC session:', err);
+    alert('Failed to connect WebRTC session: ' + (err.message || err));
     connecting.value = false;
+    isConnected.value = false;
   }
 };
 
 const stopSession = () => {
+  if (roomInstance) {
+    try {
+      roomInstance.disconnect();
+    } catch (e) {}
+    roomInstance = null;
+  }
+  activeAudioElements.forEach(el => {
+    try {
+      el.pause();
+      el.remove();
+    } catch (e) {}
+  });
+  activeAudioElements = [];
+
   isConnected.value = false;
   isSpeaking.value = false;
   messages.value.push({ speaker: 'System', text: 'Call session disconnected.' });
@@ -160,6 +216,10 @@ const closeSimulator = () => {
   if (isConnected.value) stopSession();
   emit('close');
 };
+
+onUnmounted(() => {
+  if (isConnected.value) stopSession();
+});
 
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {

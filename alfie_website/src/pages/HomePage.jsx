@@ -2,18 +2,20 @@ import React, { useState } from 'react';
 import Navbar from '../components/layout/Navbar';
 import HeroSection from '../components/hero/HeroSection';
 import TrustStrip from '../components/sections/TrustStrip';
+import BusinessScaleSection from '../components/sections/BusinessScaleSection';
 import ProblemSolution from '../components/sections/ProblemSolution';
-import NicheShowcase from '../components/sections/NicheShowcase';
 import HowItWorks from '../components/sections/HowItWorks';
+import NicheShowcase from '../components/sections/NicheShowcase';
 import ROICalculator from '../components/sections/ROICalculator';
 import DemoArena from '../components/sections/DemoArena';
 import Pricing from '../components/sections/Pricing';
 import Footer from '../components/layout/Footer';
+import ScrollProgress from '../components/ui/ScrollProgress';
 
 export default function HomePage() {
-  const [activeDemoNiche, setActiveDemoNiche] = useState('legal');
+  const [activeDemoNiche, setActiveDemoNiche] = useState('clinic');
 
-  const handleStartDemo = (niche = 'legal') => {
+  const handleStartDemo = (niche = 'clinic') => {
     setActiveDemoNiche(niche);
     const element = document.getElementById('demo-arena');
     if (element) {
@@ -22,39 +24,45 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-[#F8FAFC] font-sans selection:bg-blue-600 selection:text-white relative">
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-slate-900 selection:text-white relative overflow-x-hidden">
       
+      {/* Top Reading Progress Bar */}
+      <ScrollProgress />
+
       {/* Sticky Navigation */}
-      <Navbar onOpenDemo={() => handleStartDemo('legal')} />
+      <Navbar onOpenDemo={() => handleStartDemo('clinic')} />
 
       {/* Main Flow */}
       <main>
-        {/* 1. Hero Section with 3D Headset Model */}
-        <HeroSection onStartDemo={() => handleStartDemo('legal')} />
+        {/* 1. Hero Section: Autonomous Telephony Command Center */}
+        <HeroSection onStartDemo={(niche) => handleStartDemo(niche)} />
 
-        {/* 2. Trust Marquee */}
+        {/* 2. Global Telephony Network Benchmarks */}
         <TrustStrip />
 
-        {/* 3. Problem -> Solution Transformation */}
+        {/* 3. Interactive Signal Flow Architecture */}
         <ProblemSolution />
 
-        {/* 4. 5 Vertical Showcase with 3D Badges */}
-        <NicheShowcase onSelectNiche={(nicheId) => handleStartDemo(nicheId)} />
+        {/* 4. Dual-Audience Scale (Solo Shop to Enterprise) */}
+        <BusinessScaleSection />
 
-        {/* 5. How It Works (3-Step Pipeline with 3D Models) */}
+        {/* 5. Frictionless 3-Step Setup */}
         <HowItWorks />
 
-        {/* 6. Interactive ROI Calculator */}
+        {/* 6. Industry Solutions Showcase & Persona Studio */}
+        <NicheShowcase onSelectNiche={(nicheId) => handleStartDemo(nicheId)} />
+
+        {/* 7. Interactive ROI Impact Calculator */}
         <ROICalculator />
 
-        {/* 7. Live 90-Second Browser Voice Call Arena */}
+        {/* 8. Live WebRTC Voice Call Sandbox with Holographic Orb */}
         <DemoArena initialNiche={activeDemoNiche} />
 
-        {/* 8. 3-Tier SaaS Pricing Cards */}
+        {/* 9. Transparent Predictable SaaS Pricing & FAQ */}
         <Pricing />
       </main>
 
-      {/* Enterprise Footer */}
+      {/* Enterprise Matrix Footer */}
       <Footer />
 
     </div>

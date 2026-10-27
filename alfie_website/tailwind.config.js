@@ -7,53 +7,68 @@ export default {
   theme: {
     extend: {
       colors: {
+        obsidian: {
+          DEFAULT: '#07090E',
+          deep: '#040508',
+          card: '#0D111A',
+          surface: '#131926',
+          border: 'rgba(255, 255, 255, 0.08)',
+        },
+        cyan: {
+          neon: '#00F0FF',
+          glow: 'rgba(0, 240, 255, 0.4)',
+        },
+        sapphire: {
+          DEFAULT: '#3B82F6',
+          bright: '#60A5FA',
+          glow: 'rgba(59, 130, 246, 0.4)',
+        },
+        emerald: {
+          phosphor: '#10B981',
+          glow: 'rgba(16, 185, 129, 0.4)',
+        },
         primary: {
-          DEFAULT: '#1E3A5F', // Academic Navy
-          dark: '#132640',
-          light: '#2D568A',
+          DEFAULT: '#00F0FF', // Electric Cyan
+          dark: '#00B8C4',
+          light: '#67F7FF',
         },
         secondary: {
-          DEFAULT: '#2563EB', // Vivid Blue
-          hover: '#1D4ED8',
-          light: '#DBEAFE',
+          DEFAULT: '#3B82F6', // Luminous Sapphire
+          hover: '#2563EB',
+          light: '#93C5FD',
         },
         accent: {
-          DEFAULT: '#A16207', // Warm Gold
-          hover: '#854D0E',
-          light: '#FEF3C7',
+          DEFAULT: '#10B981', // Phosphor Emerald
+          hover: '#059669',
+          light: '#6EE7B7',
         },
         bg: {
-          DEFAULT: '#F8FAFC', // Off-White Canvas
-          card: '#FFFFFF',
-          muted: '#F1F5F9',
+          DEFAULT: '#07090E', // Dark Obsidian Canvas
+          card: '#0D111A',
+          muted: '#111726',
         },
         fg: {
-          DEFAULT: '#0F172A', // Near-Black
-          muted: '#64748B',
-          subtle: '#94A3B8',
+          DEFAULT: '#F8FAFC', // Slate White
+          muted: '#94A3B8',
+          subtle: '#64748B',
         },
         border: {
-          DEFAULT: '#E2E8F0',
-          focus: '#1E3A5F',
+          DEFAULT: 'rgba(255, 255, 255, 0.09)',
+          focus: '#00F0FF',
         },
-        success: '#059669',
-        destructive: '#DC2626',
-        niche: {
-          law: '#92400E',
-          realestate: '#1E40AF',
-          carrental: '#065F46',
-          clinic: '#0369A1',
-          hospitality: '#7C3AED',
-        }
+        success: '#10B981',
+        destructive: '#EF4444',
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', '"Inter"', 'system-ui', 'sans-serif'],
+        heading: ['"Syne"', '"Plus Jakarta Sans"', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
       },
       boxShadow: {
-        'glass': '0 8px 32px 0 rgba(30, 58, 95, 0.08)',
-        'glass-hover': '0 16px 48px 0 rgba(30, 58, 95, 0.14)',
-        'elevation': '0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04)',
-        'elevation-high': '0 20px 40px -4px rgba(15, 23, 42, 0.1), 0 8px 16px -4px rgba(15, 23, 42, 0.06)',
+        'glass': '0 20px 50px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+        'cyan-glow': '0 0 25px rgba(0, 240, 255, 0.25), 0 0 50px rgba(0, 240, 255, 0.1)',
+        'sapphire-glow': '0 0 25px rgba(59, 130, 246, 0.25), 0 0 50px rgba(59, 130, 246, 0.1)',
+        'emerald-glow': '0 0 25px rgba(16, 185, 129, 0.25), 0 0 50px rgba(16, 185, 129, 0.1)',
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',

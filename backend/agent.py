@@ -1,50 +1,41 @@
-import logging
 import asyncio
-import aiohttp
 import json
-import uuid
-from typing import Optional, Dict, Any, List
-from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
-from livekit.agents.voice import Agent
-from livekit.plugins import deepgram, openai, silero, fishaudio
-from livekit import api as livekit_api
-from config import settings
-from tools.registry import registry
-from tools.core import CoreTools
-from tools.real_estate import RealEstateTools
-from tools.car_rental import CarRentalTools
-from tools.calendar import CalendarTools
-from tools.luxury_transport import LuxuryTransportTools
-from tools.legal import LegalIntakeTools
-from tools.medical import MedicalTools
-from tools.hospitality import HospitalityTools
-from prompts.base import BASE_SYSTEM_PROMPT
-from prompts.registry import PROMPT_REGISTRY
-from crm_client import crm
-from telemetry import init_telemetry_pool, init_redis_pool, get_redis, TelemetryLogger
-from arq import create_pool
-from arq.connections import RedisSettings
-from cache import (
-    init_semantic_cache,
-    check_semantic_cache,
-    store_semantic_cache,
-    get_caller_context,
-    update_caller_memory,
-    build_memory_prompt,
-    prewarm_niche_faqs,
-    get_tenant_flags,
-    is_feature_enabled,
-    get_transfer_context,
-    CachedOpenAILLM,
-    get_cached_prompt,
-    store_cached_prompt,
-    init_bloom_filter,
-    check_duplicate_call,
-    init_timeseries,
-    record_call_start,
-)
+import logging
+import pathlib
+from typing import Any, Optional
 
-# Register available tools
+try:
+    from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli
+except ImportError:
+    AutoSubscribe = None
+    JobContext = Any
+    WorkerOptions = None
+    cli = None
+
+from config import settings
+from logging_config import setup_logging
+from pipeline import (
+    CallMetrics,
+    CallTelemetrySink,
+    DialogueSessionManager,
+    assemble_system_prompt,
+    build_audio_pipeline,
+    get_default_config,
+    prewarm_pipeline,
+    resolve_call_config,
+)
+from telemetry import get_redis
+from tools.calendar import CalendarTools
+from tools.car_rental import CarRentalTools
+from tools.core import CoreTools
+from tools.hospitality import HospitalityTools
+from tools.legal import LegalIntakeTools
+from tools.luxury_transport import LuxuryTransportTools
+from tools.medical import MedicalTools
+from tools.real_estate import RealEstateTools
+from tools.registry import registry
+
+# Register available vertical tools in the global registry
 registry.register("core_tools", CoreTools)
 registry.register("real_estate_tools", RealEstateTools)
 registry.register("car_rental_tools", CarRentalTools)
@@ -54,37 +45,45 @@ registry.register("legal_intake_tools", LegalIntakeTools)
 registry.register("medical_tools", MedicalTools)
 registry.register("hospitality_tools", HospitalityTools)
 
+setup_logging()
 logger = logging.getLogger("alfie-agent")
 
-arq_pool = None
+HEARTBEAT_FILE = pathlib.Path("/tmp/agent_heartbeat")
+arq_pool: Optional[Any] = None
+
+
+async def _heartbeat_loop():
+    """Periodically touches the heartbeat file so Docker healthcheck detects worker liveness."""
+    while True:
+        try:
+            HEARTBEAT_FILE.touch()
+        except Exception as e:
+            logger.warning(f"Failed to touch heartbeat file: {e}")
+        await asyncio.sleep(15)
 
 
 async def prewarm(proc):
     """
-    Runs once when the worker process starts — before any calls come in.
+    Runs once when the worker process starts — before any incoming calls.
     Warms up DB pool, Redis connection, semantic vector cache, and FAQ knowledge bases.
     """
     global arq_pool
-    logger.info(
-        "Prewarming agent worker: initializing telemetry, redis, arq, and semantic cache..."
-    )
-    await init_telemetry_pool()
-    await init_redis_pool()
-    arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_dsn))
-
-    # Initialize Semantic LLM Cache and pre-warm niche FAQs in the background
-    asyncio.create_task(init_semantic_cache(settings.redis_dsn))
-    asyncio.create_task(prewarm_niche_faqs("demo-tenant", "demo"))
-    redis_client = await get_redis()
-    if redis_client:
-        asyncio.create_task(init_bloom_filter(redis_client))
+    try:
+        HEARTBEAT_FILE.touch()
+    except Exception:
+        pass
+    arq_pool = await prewarm_pipeline()
 
 
 async def entrypoint(ctx: JobContext):
+    """
+    Real-Time Voice Agent Entrypoint.
+    Connects to WebRTC audio room and executes the decoupled voice pipeline.
+    """
     logger.info(f"Connecting to room {ctx.room.name}")
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
 
-    # --- PHASE 2.1b: Read tenant_id from SIP room metadata (not hardcoded) ---
+    # 1. Parse tenant_id and agent_id from room metadata or SIP name
     try:
         metadata = json.loads(ctx.room.metadata or "{}")
     except json.JSONDecodeError:
@@ -94,7 +93,6 @@ async def entrypoint(ctx: JobContext):
     agent_id = metadata.get("agent_id")
 
     if not tenant_id:
-        # Fallback for SIP URIs formatted as tenantId_agentId
         parts = ctx.room.name.split("_")
         if len(parts) >= 1 and parts[0]:
             tenant_id = parts[0]
@@ -102,467 +100,123 @@ async def entrypoint(ctx: JobContext):
             agent_id = parts[1]
 
     if not tenant_id:
-        logger.error(
-            "No tenant_id found in room metadata or name. Cannot route call. Shutting down."
-        )
+        logger.error(f"No tenant_id found in room {ctx.room.name}. Aborting call.")
         return
 
-    logger.info(f"Fetching configuration for tenant: {tenant_id} from Twenty CRM...")
-    config_data = await crm.get_tenant_config(tenant_id)
-
-    if not config_data:
-        logger.error(
-            f"Tenant config not found for '{tenant_id}' in Twenty CRM. Shutting down."
-        )
-        return
-
-    # Merge overrides from Postgres alfie_tenants, via Redis Cache
-    from telemetry import _pool
-
+    caller_phone = metadata.get("caller_phone") or metadata.get("phone") or metadata.get("caller_number")
     redis_client = await get_redis()
-    custom_config = None
 
-    if redis_client:
-        try:
-            cache_key = f"tenant_config:{agent_id or tenant_id}"
-            cached_conf = await redis_client.get(cache_key)
-            if cached_conf:
-                custom_config = json.loads(cached_conf)
-                logger.info("Fetched config from Redis Cache (TTFT optimized).")
-        except Exception as e:
-            logger.warning(f"Redis cache read failed: {e}")
-
-    if not custom_config and _pool:
-        try:
-            async with _pool.acquire() as conn:
-                if agent_id:
-                    # Parse agent uuid just in case it's string
-                    import uuid
-
-                    try:
-                        agent_uuid = (
-                            uuid.UUID(agent_id)
-                            if isinstance(agent_id, str)
-                            else agent_id
-                        )
-                        row = await conn.fetchrow(
-                            "SELECT system_prompt_override, llm_model, llm_temperature, tts_voice_id, stt_language, custom_tools FROM alfie_tenant_agents WHERE agent_id = $1",
-                            agent_uuid,
-                        )
-                        if row:
-                            custom_config = {
-                                "system_prompt_override": row["system_prompt_override"],
-                                "llm_config": {"model": row["llm_model"]},
-                                "voice_config": {"voice_id": row["tts_voice_id"]},
-                                "stt_language": row["stt_language"],
-                            }
-                            if row["llm_temperature"] is not None:
-                                custom_config["llm_config"]["temperature"] = row[
-                                    "llm_temperature"
-                                ]
-
-                            custom_tools = []
-                            if row.get("custom_tools"):
-                                if isinstance(row["custom_tools"], str):
-                                    try:
-                                        custom_tools = json.loads(row["custom_tools"])
-                                    except:
-                                        pass
-                                else:
-                                    custom_tools = row["custom_tools"]
-                            custom_config["custom_tools"] = custom_tools
-                    except Exception as err:
-                        logger.error(f"Error fetching agent {agent_id}: {err}")
-
-                if not custom_config:
-                    row = await conn.fetchrow(
-                        "SELECT tenant_config FROM alfie_tenants WHERE tenant_id = $1",
-                        tenant_id,
-                    )
-                    if row and row["tenant_config"]:
-                        custom_config = json.loads(row["tenant_config"])
-
-                # Save to Redis cache for 300 seconds (5 min — invalidated on admin save)
-                if redis_client and custom_config:
-                    await redis_client.setex(
-                        f"tenant_config:{agent_id or tenant_id}",
-                        300,
-                        json.dumps(custom_config),
-                    )
-        except Exception as e:
-            logger.warning(f"Could not load Postgres config overrides: {e}")
-
-    if custom_config:
-        try:
-            if "llm_config" in custom_config and custom_config["llm_config"].get(
-                "model"
-            ):
-                config_data["llm_config"]["model"] = custom_config["llm_config"][
-                    "model"
-                ]
-
-            if "voice_config" in custom_config:
-                for k, v in custom_config["voice_config"].items():
-                    if v:
-                        config_data["voice_config"][k] = v
-
-            if "vad_config" in custom_config:
-                for k, v in custom_config["vad_config"].items():
-                    if v is not None:
-                        config_data["vad_config"][k] = v
-
-            if (
-                "system_prompt_override" in custom_config
-                and custom_config["system_prompt_override"]
-            ):
-                config_data["system_prompt"] = custom_config["system_prompt_override"]
-
-            logger.info("Merged custom per-tenant overrides.")
-        except Exception as e:
-            logger.warning(f"Failed to merge config overrides: {e}")
-
-    logger.info(
-        f"Initializing agent for tenant: {tenant_id} (Niche: {config_data.get('niche')})"
+    # 2. Resolve Config & Assemble Prompt Context
+    config_data = await resolve_call_config(
+        tenant_id=tenant_id,
+        agent_id=agent_id,
+        metadata=metadata,
+        redis_client=redis_client,
     )
 
-    # --- PHASE 2.4b: Dynamic prompt routing via registry & Chat Handoff Context ---
-    niche = config_data.get("niche")
-    niche_prompt = PROMPT_REGISTRY.get(niche, "")
-    raw_system_prompt = f"{BASE_SYSTEM_PROMPT}\n\n{niche_prompt}\n\n{config_data.get('system_prompt', '')}"
-
-    # Check for preceding WebChat context by caller_phone or session_id
-    caller_phone = (
-        metadata.get("caller_phone")
-        or metadata.get("phone")
-        or metadata.get("caller_number")
-    )
-    chat_session_id = metadata.get("session_id")
-    chat_history_summary = ""
-    other_agents_summary = ""
-
-    # Check tenant feature flags and caller memory from Redis
-    cache_enabled = True
-    if redis_client:
-        try:
-            # 0. TimeSeries Metrics Initialization & Call Counter
-            asyncio.create_task(init_timeseries(redis_client, tenant_id))
-            asyncio.create_task(record_call_start(redis_client, tenant_id))
-
-            # 1. Spam & Duplicate Call Filter (0.1ms Bloom filter check)
-            if caller_phone:
-                is_allowed, reason = await check_duplicate_call(
-                    redis_client, caller_phone, tenant_id
-                )
-                if not is_allowed:
-                    logger.warning(
-                        f"[{tenant_id}] Rejected duplicate call from {caller_phone}: {reason}"
-                    )
-                    return
-
-            cache_enabled = await is_feature_enabled(
-                redis_client, tenant_id, "semantic_cache_enabled", default=True
-            )
-            # 2. Caller Memory Injection
-            if caller_phone:
-                caller_data = await get_caller_context(
-                    redis_client, tenant_id, caller_phone
-                )
-                if caller_data:
-                    memory_prompt = build_memory_prompt(caller_data)
-                    raw_system_prompt += f"\n\n{memory_prompt}"
-
-            # 3. Call Transfer Context Handoff
-            transfer_data = await get_transfer_context(redis_client, ctx.room.name)
-            if transfer_data:
-                raw_system_prompt += (
-                    f"\n\n=== WARM CALL TRANSFER CONTEXT ===\n"
-                    f"The caller was just transferred to you. Prior summary:\n"
-                    f"{transfer_data.get('transcript_summary', '')}\n"
-                    f"Acknowledge the handoff smoothly and address their need immediately."
-                )
-        except Exception as e:
-            logger.warning(f"Error reading Redis context in agent: {e}")
-
-    from telemetry import _pool
-
-    if _pool:
-        try:
-            async with _pool.acquire() as conn:
-                # Load other agents for call transfer routing
-                if agent_id:
-                    other_agents = await conn.fetch(
-                        "SELECT name, niche FROM alfie_tenant_agents WHERE tenant_id = $1 AND agent_id != $2",
-                        uuid.UUID(tenant_id),
-                        uuid.UUID(agent_id),
-                    )
-                else:
-                    other_agents = await conn.fetch(
-                        "SELECT name, niche FROM alfie_tenant_agents WHERE tenant_id = $1",
-                        uuid.UUID(tenant_id),
-                    )
-
-                if other_agents:
-                    agents_list = [
-                        f"- {a['name']} ({a['niche']})" for a in other_agents
-                    ]
-                    other_agents_summary = "\n".join(agents_list)
-
-                # Load chat history if available
-                if caller_phone or chat_session_id:
-                    row = None
-                    if chat_session_id:
-                        row = await conn.fetchrow(
-                            "SELECT history_json FROM alfie_chat_sessions WHERE session_id = $1",
-                            chat_session_id,
-                        )
-                    elif caller_phone:
-                        row = await conn.fetchrow(
-                            "SELECT history_json FROM alfie_chat_sessions WHERE user_phone = $1 AND tenant_id = $2 AND status = 'escalated_to_call' ORDER BY updated_at DESC LIMIT 1",
-                            caller_phone,
-                            tenant_id,
-                        )
-
-                    if row and row["history_json"]:
-                        history = json.loads(row["history_json"])
-                        if history:
-                            chat_history_summary = "\n".join(
-                                [
-                                    f"{h.get('role', 'user').capitalize()}: {h.get('content', '')}"
-                                    for h in history[-8:]
-                                ]
-                            )
-                            logger.info(
-                                "Found preceding WebChat context for voice handoff!"
-                            )
-        except Exception as e:
-            logger.warning(f"Could not load telemetry data for agent context: {e}")
-
-    if other_agents_summary:
-        raw_system_prompt += f"\n\n=== INTERNAL DEPARTMENTS ===\nYou can transfer the caller to the following departments/agents if they ask:\n{other_agents_summary}\nUse your transfer_to_department tool to transfer them."
-
-    if chat_history_summary:
-        raw_system_prompt += f"\n\n=== RECENT WEBCHAT TRANSCRIPT (PRECEEDING TEXT CONVERSATION) ===\nThe caller recently chatted with you over text before making this call:\n{chat_history_summary}\n\nIMPORTANT VOICE GREETING INSTRUCTION:\nGreet the caller seamlessly by acknowledging your prior text conversation above!"
-
-    # Compress Context via LLMLingua-2 with Redis Prompt Caching
-    system_prompt = raw_system_prompt
-    cached_compressed = await get_cached_prompt(redis_client, raw_system_prompt)
-    if cached_compressed:
-        system_prompt = cached_compressed
-    else:
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "http://llmlingua:5000/compress",
-                    json={"context": raw_system_prompt, "target_token": 600},
-                    timeout=2.0,
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        system_prompt = data.get("compressed_prompt", raw_system_prompt)
-                        logger.info(
-                            f"Compressed prompt. Saved {data.get('saved_tokens', 0)} tokens."
-                        )
-                        if redis_client:
-                            await store_cached_prompt(
-                                redis_client, raw_system_prompt, system_prompt
-                            )
-        except Exception as e:
-            logger.warning(f"LLMLingua compression skipped or failed: {e}")
-
-    # Setup tools
-    tool_keys = config_data.get("enabled_tools", [])
-
-    calendar_api_key = (
-        custom_config.get("calendar_api_key", "") if custom_config else ""
-    )
-    calendar_event_type_id = (
-        custom_config.get("calendar_event_type_id", "") if custom_config else ""
+    assembled_prompt, slot_tracker, cache_enabled = await assemble_system_prompt(
+        tenant_id=tenant_id,
+        agent_id=agent_id,
+        config_data=config_data,
+        metadata=metadata,
+        room_name=ctx.room.name,
+        redis_client=redis_client,
     )
 
-    custom_tools_list = custom_config.get("custom_tools", []) if custom_config else []
+    if not assembled_prompt:
+        logger.warning(f"[{tenant_id}] Prompt assembly rejected call (duplicate/spam). Exiting.")
+        return
+
+    # 3. Build Dynamic Toolsets
+    tool_keys = config_data.get("enabled_tools", ["core_tools"])
+    calendar_api_key = config_data.get("calendar_api_key", "")
+    calendar_event_type_id = config_data.get("calendar_event_type_id", "")
+    custom_tools_list = config_data.get("custom_tools", [])
 
     toolsets = await registry.build_toolsets(
         tool_keys,
         custom_tools=custom_tools_list,
-        niche=niche,
+        niche=config_data.get("niche", "general"),
         tenant_id=tenant_id,
         room_name=ctx.room.name,
+        room=ctx.room,
+        caller_phone=caller_phone,
         calendar_api_key=calendar_api_key,
         calendar_event_type_id=calendar_event_type_id,
     )
 
-    # Initialize AI Plugins from settings / Docker secrets
-    stt = deepgram.STT(
-        model=config_data["stt_config"]["model"],
-        language=config_data["stt_config"]["language"],
-        profanity_filter=config_data["stt_config"]["profanity_filter"],
-        smart_format=config_data["stt_config"]["smart_format"],
-        api_key=settings.deepgram_api_key,
-    )
-
-    llm_plugin = CachedOpenAILLM(
-        tenant_id=tenant_id,
-        niche=niche or "general",
+    # 4. Construct Audio Pipeline (STT, LLM, TTS, VAD)
+    agent, session, endpoint_analyzer, vad_plugin, anti_interruption_enabled = await build_audio_pipeline(
+        config_data=config_data,
+        assembled_prompt=assembled_prompt,
+        toolsets=toolsets,
         cache_enabled=cache_enabled,
-        model=config_data["llm_config"]["model"],
-        temperature=config_data["llm_config"]["temperature"],
-        max_tokens=config_data["llm_config"]["max_tokens"],
-        base_url="http://litellm:4000",
-        api_key="sk-alfie-master-key",
+        tenant_id=tenant_id,
     )
 
-    # --- PHASE 2.5b: Dynamic TTS provider ---
-    tts_provider = config_data["voice_config"].get("provider", "fish_audio")
-    if tts_provider == "fish_audio":
-        tts = fishaudio.TTS(
-            model=config_data["voice_config"]["model"],
-            reference_id=config_data["voice_config"]["voice_id"],
-            api_key=settings.fish_audio_api_key,
-            latency_mode=config_data["voice_config"]["latency_mode"],
+    # 5. Initialize Telemetry Sink & Dialogue Session Manager
+    telemetry_sink = CallTelemetrySink(
+        tenant_id=tenant_id,
+        call_id=ctx.room.name,
+        agent_id=agent_id,
+        agent_name=config_data.get("agent_name", "A.L.F.I.E Voice Agent"),
+        niche=config_data.get("niche", "general"),
+        caller_phone=caller_phone,
+        redis_client=redis_client,
+        arq_pool=arq_pool,
+    )
+    await telemetry_sink.initialize()
+
+    dialogue_manager = DialogueSessionManager(
+        tenant_id=tenant_id,
+        room=ctx.room,
+        session=session,
+        agent=agent,
+        config_data=config_data,
+        endpoint_analyzer=endpoint_analyzer,
+        vad_plugin=vad_plugin,
+        slot_tracker=slot_tracker,
+        anti_interruption_enabled=anti_interruption_enabled,
+        redis_client=redis_client,
+        telemetry_sink=telemetry_sink,
+    )
+    dialogue_manager.bind_event_listeners()
+
+    # 6. Start Voice Agent Session & Deliver Instant Opening Greeting (<150ms TTFA)
+    heartbeat_task = asyncio.create_task(_heartbeat_loop())
+    try:
+        greeting = config_data.get(
+            "greeting_message",
+            "Hello, thank you for calling. How can I assist you today?",
         )
-    else:
-        # Fallback: OpenAI TTS
-        tts = openai.TTS(
-            model="tts-1",
-            voice=config_data["voice_config"].get("voice_id", "alloy"),
-            api_key=settings.openrouter_api_key,
-        )
+        await session.say(greeting, allow_interruptions=True)
+    except Exception as e:
+        logger.warning(f"Error speaking opening greeting: {e}")
 
-    vad = silero.VAD(
-        min_silence_duration=config_data["vad_config"]["min_silence_duration"],
-        activation_threshold=config_data["vad_config"]["activation_threshold"],
-    )
-
-    # Initialize Pipeline Agent
-    agent = Agent(
-        vad=vad,
-        stt=stt,
-        llm=llm_plugin,
-        tts=tts,
-        tools=toolsets,
-        chat_ctx=llm.ChatContext().append(role="system", text=system_prompt),
-    )
-
-    agent.start(ctx.room)
-
-    greeting = config_data.get("greeting_message", "Hello, how can I help you today?")
-    await asyncio.sleep(1)  # Brief pause for audio connection stabilization
-    allow_interrupt = config_data.get("allow_interruptions", True)
-    await agent.say(greeting, allow_interruptions=allow_interrupt)
-
-    call_start_time = asyncio.get_event_loop().time()
-    interruption_count = 0
-
-    @agent.on("agent_speech_interrupted")
-    def on_interruption(*args):
-        nonlocal interruption_count
-        interruption_count += 1
+    # 7. Listen for Room Disconnection & Finalize Session
+    disconnect_future = asyncio.get_event_loop().create_future()
 
     @ctx.room.on("disconnected")
-    def on_disconnect(*args):
-        logger.info(f"[{tenant_id}] Call ended. Triggering post-call processing...")
-        duration = int(asyncio.get_event_loop().time() - call_start_time)
-        asyncio.create_task(
-            post_call_processing(
-                agent.chat_ctx,
-                tenant_id,
-                ctx.room.name,
-                duration,
-                interruption_count,
-                caller_phone=caller_phone,
-            )
+    def on_disconnected():
+        if not disconnect_future.done():
+            disconnect_future.set_result(True)
+
+    try:
+        await disconnect_future
+    except asyncio.CancelledError:
+        pass
+    finally:
+        heartbeat_task.cancel()
+        dialogue_manager.cleanup()
+        await telemetry_sink.finalize(
+            turns_count=dialogue_manager.current_turn_counter,
+            interruption_count=dialogue_manager.interruption_count,
+            dtmf_events=dialogue_manager.dtmf_events,
+            frustration_tracker=dialogue_manager.frustration_tracker,
+            slot_tracker=dialogue_manager.slot_tracker,
         )
-
-
-async def post_call_processing(
-    chat_ctx: llm.ChatContext,
-    tenant_id: str,
-    room_name: str,
-    duration_seconds: int,
-    interruption_count: int,
-    caller_phone: Optional[str] = None,
-):
-    """Runs after a call ends: fetch recording URL, log billing, and enqueue background tasks."""
-    global arq_pool  # noqa: F824 — assigned in prewarm()
-
-    # 1. Build transcript from chat context
-    messages = [
-        {"role": m.role, "content": m.text}
-        for m in chat_ctx.messages
-        if m.role in ["user", "assistant"]
-    ]
-
-    # Update caller memory in Redis for future relationship grounding
-    redis_client = await get_redis()
-    if redis_client and caller_phone:
-        try:
-            await update_caller_memory(
-                redis_client,
-                tenant_id=tenant_id,
-                phone=caller_phone,
-                notes=f"Completed call ({duration_seconds}s)",
-            )
-        except Exception as e:
-            logger.warning(f"Failed to update caller memory post-call: {e}")
-
-    # 2. Estimate tokens and calculate cost (precise token tracking would require tokenizer)
-    total_tokens = int(sum(len(m["content"].split()) * 1.3 for m in messages))
-    cost_usd = (duration_seconds / 60) * 0.05 + (total_tokens / 1000) * 0.015
-
-    # 3. Log precise metrics via TelemetryLogger
-    from telemetry import TelemetryLogger
-
-    telemetry = TelemetryLogger(tenant_id, room_name)
-    await telemetry.update_call_metrics(
-        {
-            "duration_seconds": duration_seconds,
-            "total_tokens": total_tokens,
-            "cost_usd": cost_usd,
-            "interruption_count": interruption_count,
-            # Default typical latencies (LiveKit tracks these internally, but for the dashboard we save averages if missing)
-            "stt_ms": 180,
-            "llm_ttft_ms": 420,
-            "tts_ms": 210,
-            "total_ms": 810,
-        }
-    )
-
-    if arq_pool:
-        # 4. Enqueue Call Summary Job
-        await arq_pool.enqueue_job(
-            "generate_call_summary", room_name, tenant_id, messages
-        )
-
-        # 5. Enqueue Billing Job
-        await arq_pool.enqueue_job(
-            "process_billing",
-            room_name,
-            tenant_id,
-            duration_seconds,
-            total_tokens,
-            cost_usd,
-        )
-
-        # 6. Enqueue CRM Sync
-        await arq_pool.enqueue_job(
-            "sync_crm_lead",
-            tenant_id,
-            {"call_id": room_name, "duration": duration_seconds},
-        )
-
-        logger.info(f"[{tenant_id}] Successfully enqueued post-call background jobs.")
-    else:
-        logger.warning("ARQ pool not initialized. Skipping background jobs.")
+        logger.info(f"Call session {ctx.room.name} teardown complete.")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    cli.run_app(
-        WorkerOptions(
-            entrypoint_fnc=entrypoint,
-            prewarm_fnc=prewarm,
-            api_key=settings.livekit_api_key,
-            api_secret=settings.livekit_api_secret,
-            ws_url=settings.livekit_url,
-        )
-    )
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))

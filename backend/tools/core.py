@@ -15,6 +15,11 @@ class CoreTools(llm.Toolset):
         super().__init__(id="core_tools")
         self.tenant_id = tenant_id
         self.room_name = room_name
+        self.room = kwargs.get("room")
+        self.caller_phone = kwargs.get("caller_phone")
+        self.call_state = kwargs.get("call_state")
+        self.dialogue_manager = kwargs.get("dialogue_manager")
+        self.squad_manager = kwargs.get("squad_manager")
 
     @llm.function_tool(
         description="Transfer the call to another department or agent (e.g. Sales, Support, Billing, Legal Specialist)."
@@ -314,7 +319,210 @@ class CoreTools(llm.Toolset):
                 phone=phone,
                 context=f"Captured via Voice Agent. Email: {email}",
             )
+            # Dispatch lead.qualified event to webhook hub
+            asyncio.create_task(
+                send_webhook(
+                    self.tenant_id,
+                    "lead.qualified",
+                    {
+                        "name": name,
+                        "phone": phone,
+                        "email": email,
+                        "captured_via": "Voice Agent",
+                        "room_name": self.room_name,
+                    },
+                    reference_id=phone,
+                )
+            )
             return "Got it, I've saved your information. Someone from our team will be in touch with you soon."
         except Exception as e:
             logging.error(f"Error capturing lead: {e}")
             return "I couldn't save your details right now due to a system error. Please try again."
+
+    @llm.function_tool(
+        description="Send an instant SMS text message to the caller while on the phone (e.g. to text our office address, parking instructions, Google Maps pin, booking link, appointment confirmation, or quote estimate). Always confirm verbally to the caller that you just sent it."
+    )
+    async def send_sms_to_caller(
+        self,
+        message: Annotated[str, "The exact text message content to send to the caller's mobile phone"],
+        recipient_phone: Annotated[Optional[str], "The phone number to text; defaults to the caller's active phone number if not specified"] = None,
+    ) -> str:
+        target_phone = recipient_phone or self.caller_phone
+        if not target_phone:
+            return (
+                "SMS_FAILED: No phone number was provided or available for this caller. "
+                "Politely ask the caller: 'What is the best mobile number to text this link to?'"
+            )
+
+        logging.info(f"[{self.tenant_id}] Dispatching mid-call SMS to {target_phone}: {message[:60]}...")
+        try:
+            from telephony_provider import send_sms
+            result = await send_sms(
+                to_phone=target_phone,
+                message=message,
+                tenant_id=self.tenant_id,
+                call_id=self.room_name,
+            )
+
+            # Publish event to live calling WebSocket so UI transcript shows the SMS dispatch
+            from telemetry import get_redis
+            redis_client = await get_redis()
+            if redis_client:
+                import json
+                event_payload = json.dumps({
+                    "event": "sms_dispatched",
+                    "call_id": self.room_name,
+                    "to_phone": target_phone,
+                    "message": message,
+                    "status": result.get("status", "sent"),
+                })
+                await redis_client.publish(f"telemetry:live:{self.tenant_id}", event_payload)
+
+            # Dispatch sms.sent event to webhook hub
+            asyncio.create_task(
+                send_webhook(
+                    self.tenant_id,
+                    "sms.sent",
+                    {
+                        "call_id": self.room_name,
+                        "to_phone": target_phone,
+                        "message": message,
+                        "status": result.get("status", "sent"),
+                        "provider": result.get("provider", "Twilio"),
+                    },
+                    reference_id=self.room_name,
+                )
+            )
+
+            return (
+                f"SMS successfully sent to {target_phone}. "
+                f"Confirm to the caller: 'I just texted that over to your phone right now. You should receive it in a few seconds.'"
+            )
+        except Exception as e:
+            logging.error(f"[{self.tenant_id}] Failed to send SMS: {e}")
+            return (
+                f"SMS attempted to {target_phone}, but experienced a delivery issue. "
+                "Verbally share the key information or ask to confirm the mobile number."
+            )
+
+    @llm.function_tool(
+        description=(
+            "Send DTMF touch-tone keypad digits over the phone line. Use this tool whenever you need "
+            "to navigate automated phone trees, IVR menus (e.g. 'press 1 for claims, press 2 for billing'), "
+            "or dial internal extensions (e.g. extension '402') when transferring to external hospitals, "
+            "courts, or insurance partners. You can include pauses by using commas ',' (e.g. '1,,402#')."
+        )
+    )
+    async def send_dtmf_tones(
+        self,
+        digits: Annotated[
+            str,
+            "The sequence of DTMF digits to transmit over the line, e.g. '1', '2', '402', '1,,402#'. "
+            "Valid characters are 0-9, *, #, A-D, and commas ',' for a 500ms pause."
+        ],
+        reason: Annotated[
+            Optional[str],
+            "The purpose of sending these tones (e.g. 'Selecting department 1 in IVR menu', 'Dialing extension 402')"
+        ] = None,
+    ) -> str:
+        clean_digits = (digits or "").strip()
+        from dtmf_utils import validate_dtmf_sequence, dispatch_dtmf_sequence
+
+        if not validate_dtmf_sequence(clean_digits):
+            return f"DTMF_ERROR: Invalid DTMF sequence '{clean_digits}'. Only characters 0-9, *, #, A-D, and commas ',' are supported."
+
+        logging.info(f"[{self.tenant_id}] Transmitting DTMF sequence '{clean_digits}' for call '{self.room_name}'. Reason: {reason}")
+
+        # 1. Transmit via LiveKit room local_participant if available
+        tones_sent = 0
+        try:
+            if self.room:
+                tones_sent = await dispatch_dtmf_sequence(self.room, clean_digits)
+            else:
+                tones_sent = len([c for c in clean_digits if c != ','])
+        except Exception as e:
+            logging.warning(f"[{self.tenant_id}] publish_dtmf error: {e}")
+
+        # 2. Record in call_state for post-call audit persistence
+        if isinstance(self.call_state, dict):
+            if "dtmf_events" not in self.call_state:
+                self.call_state["dtmf_events"] = []
+            from datetime import datetime, timezone
+            self.call_state["dtmf_events"].append({
+                "direction": "outbound",
+                "digits": clean_digits,
+                "reason": reason or "automated IVR navigation",
+                "source": "agent",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+
+        # 3. Publish to Redis PubSub telemetry:live:{tenant_id}
+        try:
+            from telemetry import get_redis
+            redis_client = await get_redis()
+            if redis_client:
+                import json
+                event_payload = json.dumps({
+                    "event": "dtmf_transmitted",
+                    "call_id": self.room_name,
+                    "digits": clean_digits,
+                    "source": "agent",
+                    "reason": reason or "automated IVR navigation",
+                    "tones_count": tones_sent,
+                })
+                await redis_client.publish(f"telemetry:live:{self.tenant_id}", event_payload)
+        except Exception as err:
+            logging.warning(f"Error publishing DTMF event to Redis: {err}")
+
+        return (
+            f"Successfully transmitted DTMF tones '{clean_digits}' over the phone line. "
+            f"Reason: {reason or 'phone tree navigation'}. Listen to the line for the next menu prompt or live agent pickup."
+        )
+
+    @llm.function_tool(
+        description=(
+            "Transfer the active call in-memory to another specialized sub-agent in your squad "
+            "(e.g. 'legal_intake_specialist', 'receptionist', 'billing_officer', 'vip_concierge'). "
+            "This performs an immediate zero-reconnect context handoff without disconnecting the caller's audio."
+        )
+    )
+    async def transfer_to_squad_agent(
+        self,
+        target_role_or_id: Annotated[
+            str, "The target sub-agent role, name, or ID to transfer to (e.g. 'legal_intake_specialist', 'billing_officer')"
+        ],
+        reason: Annotated[
+            str, "The specific reason for transferring the call (e.g. 'Caller needs detailed personal injury intake qualification')"
+        ],
+        transfer_notes: Annotated[
+            Optional[str], "Any crucial caller facts or notes to pass to the incoming specialist agent"
+        ] = None,
+    ) -> str:
+        logging.info(
+            f"[{self.tenant_id}] Initiating in-memory squad handoff to: {target_role_or_id}. Reason: {reason}"
+        )
+
+        if not self.squad_manager:
+            return (
+                f"SQUAD_HANDOFF_UNAVAILABLE: No sub-agent squad manager is active for this session. "
+                f"Please transfer via transfer_to_department or assist the caller directly."
+            )
+
+        result = await self.squad_manager.execute_in_memory_handoff(
+            target_identifier=target_role_or_id,
+            reason=reason,
+            transfer_notes=transfer_notes or "",
+            dialogue_manager=self.dialogue_manager,
+        )
+
+        if result.status == "success":
+            return (
+                f"HANDOFF_SUCCESS: Successfully transferred call in-memory to {result.target_agent} ({result.target_role}) "
+                f"in {result.handoff_duration_ms:.1f}ms. "
+                f"Spoken bridge: {result.spoken_bridge_message}"
+            )
+        else:
+            return (
+                f"HANDOFF_ERROR: Could not complete in-memory transfer to '{target_role_or_id}'. "
+                f"Error: {result.error or 'Target squad member not found'}. Offer to assist them directly or take a message."
+            )

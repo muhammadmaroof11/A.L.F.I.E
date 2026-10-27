@@ -5,6 +5,8 @@ import asyncio
 
 # Set dummy environment variables for tests before importing config
 for secret_key in [
+    "LIVEKIT_API_KEY",
+    "LIVEKIT_API_SECRET",
     "DEEPGRAM_API_KEY",
     "OPENROUTER_API_KEY",
     "FISH_AUDIO_API_KEY",

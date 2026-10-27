@@ -101,6 +101,11 @@ async def generate_demo_token(req: DemoTokenRequest, request: Request):
     participant_identity = f"visitor-{uuid.uuid4().hex[:6]}"
 
     if not settings.livekit_api_key or not settings.livekit_api_secret:
+        if not settings.sandbox_mode:
+            raise HTTPException(
+                status_code=503,
+                detail="Voice demo is temporarily unavailable. Please try again later.",
+            )
         return {
             "token": "mock_livekit_demo_token",
             "url": settings.livekit_url,
@@ -143,6 +148,11 @@ async def generate_demo_token(req: DemoTokenRequest, request: Request):
         }
     except Exception as e:
         logger.error(f"Error generating demo token: {e}")
+        if not settings.sandbox_mode:
+            raise HTTPException(
+                status_code=503,
+                detail="Voice demo is temporarily unavailable. Please try again later.",
+            )
         return {
             "token": "mock_livekit_demo_token",
             "url": settings.livekit_url,
@@ -173,17 +183,6 @@ async def request_demo_callback(req: DemoCallbackRequest, request: Request):
     if _pool:
         try:
             async with _pool.acquire() as conn:
-                await conn.execute("""
-                    CREATE TABLE IF NOT EXISTS alfie_demo_leads (
-                        id SERIAL PRIMARY KEY,
-                        name VARCHAR(255),
-                        phone VARCHAR(50) NOT NULL,
-                        niche VARCHAR(50),
-                        company_name VARCHAR(255),
-                        status VARCHAR(50) DEFAULT 'pending',
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    );
-                """)
                 await conn.execute(
                     """
                     INSERT INTO alfie_demo_leads (name, phone, niche, company_name)
@@ -200,6 +199,26 @@ async def request_demo_callback(req: DemoCallbackRequest, request: Request):
     logger.info(
         f"[DEMO CALLBACK] Prospect requested live call to: {req.phone_number} (Niche: {req.niche})"
     )
+
+    # Enqueue real automated outbound call dispatch via background worker
+    try:
+        from arq import create_pool
+        from arq.connections import RedisSettings
+
+        arq_client = await create_pool(RedisSettings.from_dsn(settings.redis_dsn))
+        await arq_client.enqueue_job(
+            "dispatch_demo_outbound_call",
+            phone_number=req.phone_number,
+            niche=req.niche,
+            visitor_name=req.visitor_name,
+            company_name=req.company_name,
+        )
+        await arq_client.close()
+        logger.info(
+            f"[DEMO CALLBACK] Successfully enqueued outbound call dispatch to: {req.phone_number}"
+        )
+    except Exception as e:
+        logger.warning(f"Could not enqueue outbound demo call: {e}")
 
     return {
         "status": "success",

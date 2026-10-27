@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A.L.F.I.E — Architecture, E.R.D & Call Flow Visual Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg-base: #060a13;
+      --bg-card: #0b1322;
+      --bg-card-header: #111c30;
+      --border-color: #1e293b;
+      --border-glow: #38bdf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-cyan: #38bdf8;
+      --accent-blue: #60a5fa;
+      --accent-indigo: #818cf8;
+      --accent-green: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-rose: #fb7185;
+      --accent-purple: #c084fc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+
+    /* Header Nav */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(16px);
+      background: rgba(6, 10, 19, 0.85);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo));
+      color: #060a13;
+      font-weight: 800;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      letter-spacing: 0.05em;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: #0b1322;
+      padding: 0.35rem;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.5rem 1.15rem;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      background: var(--accent-cyan);
+      color: #060a13;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.35);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      background: #111c30;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      border-color: var(--accent-cyan);
+      background: #182640;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: #060a13;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Main Container */
+    main {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .tab-pane {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Section Headers */
+    .section-header {
+      margin-bottom: 2rem;
+    }
+
+    .section-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent-cyan);
+      margin-bottom: 0.5rem;
+      display: inline-block;
+    }
+
+    .section-title {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 900px;
+    }
+
+    /* KPI Summary Strip */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--card-accent, var(--accent-cyan));
+    }
+
+    .kpi-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+
+    .kpi-value {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+    }
+
+    .kpi-unit {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+    }
+
+    .kpi-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+    }
+
+    /* Diagram Viewport */
+    .diagram-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2.5rem;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+      position: relative;
+      margin-bottom: 2.5rem;
+      overflow-x: auto;
+    }
+
+    .diagram-actions {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      gap: 0.5rem;
+      z-index: 10;
+    }
+
+    /* Cards & Tech Grid */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .tech-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .tech-card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .tech-card-header {
+      background: var(--bg-card-header);
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tech-card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .tech-card-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--accent-cyan);
+    }
+
+    .tech-card-body {
+      padding: 1.25rem;
+    }
+
+    .attr-list {
+      list-style: none;
+    }
+
+    .attr-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.85rem;
+    }
+
+    .attr-item:last-child {
+      border-bottom: none;
+    }
+
+    .attr-name {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .attr-type {
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    /* Print Optimization */
+    @media print {
+      header {
+        position: static;
+        background: #fff !important;
+        color: #000 !important;
+      }
+      body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      .btn, .nav-tabs {
+        display: none !important;
+      }
+      .tab-pane {
+        display: block !important;
+        page-break-after: always;
+      }
+      .diagram-container, .tech-card, .kpi-card {
+        border-color: #ccc !important;
+        background: #fafafa !important;
+        box-shadow: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span class="brand-badge">A.L.F.I.E</span>
+      <span class="brand-title">Enterprise Architecture & Call Flow Suite</span>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('hl-flow-tab')">🌟 High-Level Flow (Executive)</button>
+      <button class="tab-btn" onclick="switchTab('flow-tab')">📞 Detailed Call & Agent Flow</button>
+      <button class="tab-btn" onclick="switchTab('erd-tab')">🐘 Database E.R.D</button>
+      <button class="tab-btn" onclick="switchTab('tech-tab')">⚙️ Technology Stack</button>
+      <button class="tab-btn" onclick="switchTab('resilience-tab')">🛡️ Resilience & Fallbacks</button>
+    </nav>
+
+    <div class="header-actions">
+      <button class="btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <a href="presentation_assets/ALFIE_Architecture_and_Call_Flow_Presentation.pdf" download class="btn btn-primary">📥 Download Presentation PDF</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- TAB 0: HIGH-LEVEL SIMPLIFIED FLOW -->
+    <section id="hl-flow-tab" class="tab-pane active">
+      <div class="section-header">
+        <span class="section-tag">Executive Overview</span>
+        <h1 class="section-title">Simplified Call & Agent Flow</h1>
+        <p class="section-desc">Abstracted view of the end-to-end customer journey: from the initial ring, real-time voice comprehension and reasoning, natural voice synthesis, to CRM booking and outcome sync.</p>
+      </div>
+
+      <div class="diagram-container">
+        <pre class="mermaid">
+flowchart LR
+    Caller(["1. Customer Rings<br>Phone Call / Web Demo"]) --> Listen["2. Listen<br>Real-Time Voice Recognition"]
+    Listen --> Think["3. Think & Decide<br>A.L.F.I.E AI Agent Brain<br>(Context, Memory & Business Rules)"]
+    Think --> Speak["4. Speak<br>Natural Voice Response<br>(Sub-Second Turnaround)"]
+    Speak -.->|Continuous Conversation Loop| Listen
+
+    Think ==> Outcomes{"5. Actions & Outcomes"}
+    Outcomes -->|Appointments| Cal["Calendar Booking"]
+    Outcomes -->|Lead Qualification| Lead["Qualified Lead Record"]
+    Outcomes -->|Transfer Request| Xfer["Hot-Transfer to Staff"]
+    Outcomes -->|Staff Busy / After-Hours| CB["Priority Callback"]
+
+    Cal --> CRM[("6. Business Systems & CRM<br>Live Dashboards, Slack Alerts & Metrics")]
+    Lead --> CRM
+    Xfer --> CRM
+    CB --> CRM
+
+    classDef mainStep fill:#111c30,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef actionStep fill:#0f172a,stroke:#34d399,stroke-width:2px,color:#f8fafc;
+    classDef crmStep fill:#182238,stroke:#fb7185,stroke-width:2px,color:#f8fafc;
+    class Caller,Listen,Think,Speak mainStep;
+    class Outcomes,Cal,Lead,Xfer,CB actionStep;
+    class CRM crmStep;
+        </pre>
+      </div>
+    </section>
+
+    <!-- TAB 1: CALL & AGENT FLOW -->
+    <section id="flow-tab" class="tab-pane">
+      <div class="section-header">
+        <span class="section-tag">Stage 01 to 05 Lifecycle</span>
+        <h1 class="section-title">End-to-End Voice & Agent Execution Flow</h1>
+        <p class="section-desc">Real-time trace of an inbound call from PSTN/WebRTC audio packet ingress, Silero Voice Activity Detection, Deepgram STT, CachedOpenAILLM reasoning, Cartesia synthesis, to Redis durable telemetry streams.</p>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card" style="--card-accent: var(--accent-cyan)">
+          <div class="kpi-label">Target Total Turn Latency</div>
+          <div class="kpi-value">680 - 810 <span class="kpi-unit">ms</span></div>
+          <div class="kpi-sub">Sub-second conversational SLA</div>
+        </div>
+        <div class="kpi-card" style="--card-accent: var(--accent-blue)">
+          <div class="kpi-label">Speech-to-Text (STT)</div>
+          <div class="kpi-value">180 <span class="kpi-unit">ms</span></div>
+          <div class="kpi-sub">Deepgram Nova-3 Multi-lingual</div>
+        </div>
+        <div class="kpi-card" style="--card-accent: var(--accent-indigo)">
+          <div class="kpi-label">LLM Time-to-First-Token</div>
+          <div class="kpi-value">320 <span class="kpi-unit">ms</span></div>
+          <div class="kpi-sub">CachedOpenAILLM + Semantic Cache</div>
+        </div>
+        <div class="kpi-card" style="--card-accent: var(--accent-amber)">
+          <div class="kpi-label">TTS Time-to-First-Audio</div>
+          <div class="kpi-value">190 <span class="kpi-unit">ms</span></div>
+          <div class="kpi-sub">Cartesia Sonic Streaming PCM</div>
+        </div>
+        <div class="kpi-card" style="--card-accent: var(--accent-green)">
+          <div class="kpi-label">Interrupt Mute SLA</div>
+          <div class="kpi-value">&lt; 30 <span class="kpi-unit">ms</span></div>
+          <div class="kpi-sub">Zero overlap on user barge-in</div>
+        </div>
+      </div>
+
+      <div class="diagram-container">
+        <pre class="mermaid">
+flowchart TD
+    subgraph Ingress["1. Ingress & Telephony Gateways"]
+        PSTN["Inbound PSTN / Mobile Call"]
+        WebRTCClient["WebRTC Browser / Demo Arena"]
+        SIPTrunk["LiveKit SIP Trunk / Twilio Gateway"]
+        Dispatch["LiveKit SIP Inbound Dispatcher"]
+        Room["WebRTC Audio Room"]
+    end
+
+    subgraph AgentWorker["2. LiveKit Agent Worker"]
+        VAD["Silero VAD (Voice Activity Detector)"]
+        STT["STT Stream (Deepgram Nova-3)"]
+        Orchestrator["Agent Reasoning Core (CachedOpenAILLM)"]
+        TTS["TTS Stream (Cartesia / Fish Audio)"]
+    end
+
+    subgraph Caches["3. State & Cache Layer (Redis Stack)"]
+        Dedup["Call Dedup Filter (RedisBloom)"]
+        CallerMem["Caller Memory 90-Day History"]
+        Semantic["Semantic Prompt & Vector Cache"]
+        FAQCache["Pre-warmed Vertical FAQ Store"]
+        TransferBuf["Hot-Transfer Context Buffer"]
+        TeleStream["Durable Telemetry Stream"]
+    end
+
+    subgraph Tools["4. Function Calling Engine"]
+        LeadTool["save_lead_info()"]
+        AvailTool["check_availability() & book_appointment()"]
+        TransferTool["transfer_to_department()"]
+        CallbackTool["schedule_callback() (Line-Busy Fallback)"]
+        WebhookTool["execute_custom_webhook()"]
+    end
+
+    subgraph Persistence["5. Relational DB, Billing & Real-Time Monitoring"]
+        AsyncWorker["Telemetry Ingest Worker (worker.py)"]
+        Postgres[("PostgreSQL Database")]
+        WebSockets["Live Real-Time WebSockets"]
+        SuperAdmin["Super Admin UI (Port 5174)"]
+        ClientAdmin["Client Admin UI (Port 5173)"]
+        ClientCRMs["Webhook Dispatchers (Slack / CRM)"]
+    end
+
+    %% Ingress Flow
+    PSTN -->|SIP Invite| SIPTrunk
+    SIPTrunk --> Dispatch
+    WebRTCClient -->|Token Auth| Room
+    Dispatch -->|Allocate Room| Room
+    Room --> Dedup
+
+    %% Processing Loop
+    Dedup -->|Check Phone| CallerMem
+    Room <-->|Bi-directional Audio| VAD
+    VAD -->|Active Audio Frames| STT
+    STT -->|Real-time Text| Orchestrator
+
+    %% LLM & State Cache Flow
+    Orchestrator <-->|Cache Match Check| Semantic
+    Orchestrator <-->|Niche Context| FAQCache
+    Orchestrator <-->|Recall Prior Preference| CallerMem
+    Orchestrator -->|Execute Actions| Tools
+
+    %% Tool Interactions
+    TransferTool -->|Buffer Active Context| TransferBuf
+    CallbackTool -->|Fallback On Busy| Postgres
+    LeadTool -->|Sync Lead| Postgres
+    WebhookTool -->|Send Event| ClientCRMs
+
+    %% Synthesis & Playback
+    Orchestrator -->|Streaming Text Tokens| TTS
+    TTS -->|Chunked Audio PCM| Room
+
+    %% Telemetry & Storage
+    Orchestrator -.->|Push Turn Metrics| TeleStream
+    TeleStream --> AsyncWorker
+    AsyncWorker -->|Persist Call Record & Usage| Postgres
+    AsyncWorker -->|Broadcast Live Frame| WebSockets
+    WebSockets --> SuperAdmin
+    WebSockets --> ClientAdmin
+        </pre>
+      </div>
+    </section>
+
+    <!-- TAB 2: DATABASE ERD -->
+    <section id="erd-tab" class="tab-pane">
+      <div class="section-header">
+        <span class="section-tag">PostgreSQL 16 & Redis Stack Schema</span>
+        <h1 class="section-title">Database Entity-Relationship Model</h1>
+        <p class="section-desc">Relational data models governing multi-tenant organizations, phone DID mappings, telemetry recordings, lead capture, usage billing, and high-priority callback queues.</p>
+      </div>
+
+      <div class="diagram-container">
+        <pre class="mermaid">
+erDiagram
+    ALFIE_TENANTS ||--o{ ALFIE_PHONE_NUMBERS : routes
+    ALFIE_TENANTS ||--o{ ALFIE_CALL_RECORDINGS : logs
+    ALFIE_TENANTS ||--o{ ALFIE_LEADS : captures
+    ALFIE_TENANTS ||--o{ ALFIE_CALLBACKS : schedules
+    ALFIE_TENANTS ||--o{ ALFIE_USAGE : incurs
+    ALFIE_TENANTS ||--o{ ALFIE_CREDIT_TRANSACTIONS : bills
+    ALFIE_TENANTS ||--o{ ALFIE_CHAT_SESSIONS : hosts
+    ALFIE_TENANTS ||--o{ ALFIE_VOUCHER_REDEMPTIONS : redeems
+    
+    ALFIE_VOUCHERS ||--o{ ALFIE_VOUCHER_REDEMPTIONS : tracks
+    ALFIE_NICHES ||--o{ ALFIE_PERSONAS : baseline
+    ALFIE_CALL_RECORDINGS ||--o{ ALFIE_TELEMETRY : streams
+    ALFIE_CALL_RECORDINGS ||--o| ALFIE_CALLBACKS : fallback
+
+    ALFIE_TENANTS {
+        string tenant_id PK
+        string name
+        string niche
+        string status
+        decimal credit_limit_usd
+        string api_key_hash
+        string email UK
+        string password_hash
+        jsonb tenant_config
+        string subscription_tier
+        string subscription_status
+        timestamp subscription_cycle_end
+        int included_minutes_balance
+        timestamp created_at
+    }
+
+    ALFIE_PHONE_NUMBERS {
+        int id PK
+        string phone_number UK
+        string tenant_id FK
+        string niche
+        string provider
+        timestamp created_at
+    }
+
+    ALFIE_CALL_RECORDINGS {
+        string call_id PK
+        string tenant_id FK
+        string niche
+        string caller_number
+        int duration_seconds
+        jsonb transcript
+        string sentiment
+        int quality_score
+        int stt_ms
+        int llm_ttft_ms
+        int tts_ms
+        int total_ms
+        int total_tokens
+        decimal cost_usd
+        int interruption_count
+        string recording_url
+        timestamp created_at
+    }
+
+    ALFIE_LEADS {
+        int id PK
+        string tenant_id FK
+        string name
+        string phone
+        string email
+        string niche
+        string status
+        text notes
+        timestamp created_at
+    }
+
+    ALFIE_CALLBACKS {
+        int id PK
+        string tenant_id FK
+        string call_id FK
+        string caller_name
+        string caller_phone
+        string target_agent_id
+        string target_department
+        string preferred_time
+        text reason
+        text notes
+        string priority
+        string status
+        boolean notification_sent
+        timestamp created_at
+    }
+
+    ALFIE_USAGE {
+        int id PK
+        string tenant_id FK
+        string call_id
+        int duration_seconds
+        decimal credits_consumed
+        boolean processed
+        timestamp created_at
+    }
+
+    ALFIE_CREDIT_TRANSACTIONS {
+        int id PK
+        string tenant_id FK
+        decimal amount_usd
+        string transaction_type
+        text description
+        timestamp created_at
+    }
+
+    ALFIE_PERSONAS {
+        int id PK
+        string niche_name UK
+        text system_prompt
+        string voice_id
+        text example_conversation
+        timestamp updated_at
+    }
+
+    ALFIE_CUSTOM_TOOLS {
+        int id PK
+        string tool_name UK
+        text description
+        text webhook_url
+        string http_method
+        jsonb parameters_json
+        timestamp created_at
+    }
+
+    ALFIE_NICHES {
+        int id PK
+        string niche_key UK
+        string display_name
+        string category
+        text system_prompt_template
+        string default_voice_id
+        jsonb default_tools_json
+        string icon
+    }
+
+    ALFIE_RATE_CARDS {
+        int id PK
+        string tier_name UK
+        decimal stt_rate_per_min
+        decimal llm_rate_per_1k_tokens
+        decimal tts_rate_per_min
+        decimal markup_multiplier
+    }
+        </pre>
+      </div>
+    </section>
+
+    <!-- TAB 3: TECH STACK -->
+    <section id="tech-tab" class="tab-pane">
+      <div class="section-header">
+        <span class="section-tag">Architecture Layers</span>
+        <h1 class="section-title">Backend Technologies & Protocols</h1>
+        <p class="section-desc">Detailed specification of all service providers, protocols, libraries, and hardware layers powering A.L.F.I.E.</p>
+      </div>
+
+      <div class="tech-grid">
+        <div class="tech-card">
+          <div class="tech-card-header">
+            <span class="tech-card-title">Telephony & WebRTC</span>
+            <span class="tech-card-badge">INGRESS</span>
+          </div>
+          <div class="tech-card-body">
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">LiveKit Cloud / Server</span><span class="attr-type">WebRTC SFU</span></li>
+              <li class="attr-item"><span class="attr-name">SIP Inbound Trunk</span><span class="attr-type">Twilio / Telnyx</span></li>
+              <li class="attr-item"><span class="attr-name">Audio Codec</span><span class="attr-type">Opus / 16kHz PCM</span></li>
+              <li class="attr-item"><span class="attr-name">LiveKit Agents SDK</span><span class="attr-type">Python 3.13 Async</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-card">
+          <div class="tech-card-header">
+            <span class="tech-card-title">Audio Processing & VAD</span>
+            <span class="tech-card-badge">INPUT</span>
+          </div>
+          <div class="tech-card-body">
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">Silero VAD v5</span><span class="attr-type">&lt;30ms Turn Detection</span></li>
+              <li class="attr-item"><span class="attr-name">Deepgram Nova-3</span><span class="attr-type">Streaming STT</span></li>
+              <li class="attr-item"><span class="attr-name">AssemblyAI / Whisper</span><span class="attr-type">Fallback STT</span></li>
+              <li class="attr-item"><span class="attr-name">Multilingual Support</span><span class="attr-type">EN / UR / AR / ES</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-card">
+          <div class="tech-card-header">
+            <span class="tech-card-title">Reasoning & Models</span>
+            <span class="tech-card-badge">CORE LLM</span>
+          </div>
+          <div class="tech-card-body">
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">Gemini 2.5 Flash</span><span class="attr-type">Multimodal / Fast</span></li>
+              <li class="attr-item"><span class="attr-name">OpenAI GPT-4o-mini</span><span class="attr-type">Zero-Shot Reasoning</span></li>
+              <li class="attr-item"><span class="attr-name">Groq Llama-3.3 70B</span><span class="attr-type">Ultra-low TTFT</span></li>
+              <li class="attr-item"><span class="attr-name">CachedOpenAILLM</span><span class="attr-type">Subclass Adapter</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-card">
+          <div class="tech-card-header">
+            <span class="tech-card-title">Speech Synthesis (TTS)</span>
+            <span class="tech-card-badge">OUTPUT</span>
+          </div>
+          <div class="tech-card-body">
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">Cartesia Sonic</span><span class="attr-type">190ms TTFA Low Latency</span></li>
+              <li class="attr-item"><span class="attr-name">ElevenLabs Turbo v2</span><span class="attr-type">Expressive Voice</span></li>
+              <li class="attr-item"><span class="attr-name">Audio Buffer Streaming</span><span class="attr-type">20ms Chunking</span></li>
+              <li class="attr-item"><span class="attr-name">Custom Filler Phrases</span><span class="attr-type">Natural Conversational Flow</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-card">
+          <div class="tech-card-header">
+            <span class="tech-card-title">Redis Stack In-Memory</span>
+            <span class="tech-card-badge">STATE & CACHE</span>
+          </div>
+          <div class="tech-card-body">
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">Redis Semantic Cache</span><span class="attr-type">Vector LLM Matching</span></li>
+              <li class="attr-item"><span class="attr-name">RedisBloom Filter</span><span class="attr-type">Call Dedup & Anti-Spam</span></li>
+              <li class="attr-item"><span class="attr-name">Redis Caller Memory</span><span class="attr-type">90-Day Context Hashes</span></li>
+              <li class="attr-item"><span class="attr-name">Redis Streams</span><span class="attr-type">Durable Telemetry Stream</span></li>
+              <li class="attr-item"><span class="attr-name">Redis TimeSeries</span><span class="attr-type">Live SLA Latency Tracker</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-card">
+          <div class="tech-card-header">
+            <span class="tech-card-title">PostgreSQL & WebSockets</span>
+            <span class="tech-card-badge">PERSISTENCE</span>
+          </div>
+          <div class="tech-card-body">
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">PostgreSQL 16</span><span class="attr-type">Multi-tenant Relational</span></li>
+              <li class="attr-item"><span class="attr-name">AsyncPG Connection Pool</span><span class="attr-type">Min:2 / Max:20 Pool</span></li>
+              <li class="attr-item"><span class="attr-name">FastAPI Real-time API</span><span class="attr-type">Port 8000</span></li>
+              <li class="attr-item"><span class="attr-name">WebSocket Broadcast</span><span class="attr-type">Sub-50ms UI Sync</span></li>
+              <li class="attr-item"><span class="attr-name">CRM Webhook Notifier</span><span class="attr-type">Slack / CRM Event Dispatch</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: RESILIENCE & FALLBACKS -->
+    <section id="resilience-tab" class="tab-pane">
+      <div class="section-header">
+        <span class="section-tag">Fault-Tolerant Operations</span>
+        <h1 class="section-title">Live Hot Transfer & Line-Busy Fallback Mechanism</h1>
+        <p class="section-desc">How A.L.F.I.E guarantees zero dropped opportunities during peak call volume and department transfers.</p>
+      </div>
+
+      <div class="tech-grid">
+        <div class="tech-card" style="border-color: rgba(251, 113, 133, 0.4)">
+          <div class="tech-card-header" style="background: rgba(251, 113, 133, 0.15)">
+            <span class="tech-card-title" style="color: var(--accent-rose)">1. Transfer Request & Warm Context Buffer</span>
+            <span class="tech-card-badge" style="color: var(--accent-rose)">HOT TRANSFER</span>
+          </div>
+          <div class="tech-card-body">
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem;">When caller requests transfer (e.g. "Connect me to Senior Partner"), A.L.F.I.E buffers the conversation summary and lead qualification in Redis <code>transfer_buffer:{call_id}</code>.</p>
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">LiveKit SIP REFER</span><span class="attr-type">Direct Extension Transfer</span></li>
+              <li class="attr-item"><span class="attr-name">Context Handoff</span><span class="attr-type">Screen-Pop JSON</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-card" style="border-color: rgba(251, 191, 36, 0.4)">
+          <div class="tech-card-header" style="background: rgba(251, 191, 36, 0.15)">
+            <span class="tech-card-title" style="color: var(--accent-amber)">2. Line-Busy / Unavailable Detection</span>
+            <span class="tech-card-badge" style="color: var(--accent-amber)">FALLBACK DETECTION</span>
+          </div>
+          <div class="tech-card-body">
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem;">If the extension returns <code>486 Busy Here</code>, <code>408 Request Timeout</code>, or after-hours status, the agent immediately re-engages the caller without hanging up.</p>
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">SIP Response Code</span><span class="attr-type">486 / 480 / 408</span></li>
+              <li class="attr-item"><span class="attr-name">Agent Verbal Re-engagement</span><span class="attr-type">&lt; 400ms Turnaround</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-card" style="border-color: rgba(52, 211, 153, 0.4)">
+          <div class="tech-card-header" style="background: rgba(52, 211, 153, 0.15)">
+            <span class="tech-card-title" style="color: var(--accent-green)">3. Priority Callback Ticket Booking</span>
+            <span class="tech-card-badge" style="color: var(--accent-green)">SCHEDULE CALLBACK</span>
+          </div>
+          <div class="tech-card-body">
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem;">The AI agent proactively asks for preferred callback time, creates an entry in PostgreSQL <code>alfie_callbacks</code>, updates CRM lead record, and triggers an instant Slack / CRM webhook notification.</p>
+            <ul class="attr-list">
+              <li class="attr-item"><span class="attr-name">Tool Executed</span><span class="attr-type">schedule_callback()</span></li>
+              <li class="attr-item"><span class="attr-name">Webhook Triggered</span><span class="attr-type">client_callback_scheduled</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#0b1322',
+        primaryColor: '#1e293b',
+        primaryTextColor: '#f8fafc',
+        primaryBorderColor: '#38bdf8',
+        lineColor: '#38bdf8',
+        secondaryColor: '#111c30',
+        tertiaryColor: '#0f172a'
+      }
+    });
+
+    const renderedTabs = new Set();
+
+    async function renderTabDiagrams(tabId) {
+      if (renderedTabs.has(tabId)) return;
+      
+      const tabElement = document.getElementById(tabId);
+      if (!tabElement) return;
+
+      const mermaidNodes = tabElement.querySelectorAll('.mermaid');
+      if (mermaidNodes.length === 0) return;
+
+      for (let i = 0; i < mermaidNodes.length; i++) {
+        const node = mermaidNodes[i];
+        if (node.getAttribute('data-processed')) continue;
+        
+        try {
+          const id = `mermaid-svg-${tabId}-${i}-${Date.now()}`;
+          const text = node.textContent.trim();
+          const { svg } = await mermaid.render(id, text);
+          node.innerHTML = svg;
+          node.setAttribute('data-processed', 'true');
+        } catch (err) {
+          console.error("Mermaid render error for tab:", tabId, err);
+          node.innerHTML = `<div style="color:#fb7185; padding:1rem; border:1px solid #fb7185; border-radius:8px; font-family:monospace;"><b>Mermaid Render Error:</b><br>${err.message}</div>`;
+        }
+      }
+      renderedTabs.add(tabId);
+    }
+
+    async function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      
+      const targetPane = document.getElementById(tabId);
+      if (targetPane) {
+        targetPane.classList.add('active');
+      }
+
+      const matchingBtn = document.querySelector(`button[onclick*="${tabId}"]`);
+      if (matchingBtn) {
+        matchingBtn.classList.add('active');
+      }
+
+      await renderTabDiagrams(tabId);
+    }
+
+    // Initial render on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      await renderTabDiagrams('hl-flow-tab');
+    });
+  </script>
+</body>
+</html>
+

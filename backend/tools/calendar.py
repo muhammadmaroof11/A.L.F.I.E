@@ -66,7 +66,7 @@ class CalendarTools(llm.Toolset):
                 try:
                     dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
                     times_formatted.append(dt.strftime("%I:%M %p"))
-                except:
+                except (ValueError, TypeError):
                     pass
 
             return f"Available slots on {date_str}: " + ", ".join(times_formatted)

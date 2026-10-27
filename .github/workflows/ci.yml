@@ -1,11 +1,10 @@
 name: A.L.F.I.E CI Pipeline
 
 on:
-  # Automated push/PR triggers temporarily disabled per user request
-  # push:
-  #   branches: [ "main" ]
-  # pull_request:
-  #   branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -34,6 +33,57 @@ jobs:
     - name: Check formatting with black
       run: |
         black --check backend/
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: alfie_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        pip install -r backend/requirements.txt
+      env:
+        LIVEKIT_API_KEY: dummy
+        LIVEKIT_API_SECRET: dummy
+        DEEPGRAM_API_KEY: dummy
+        OPENROUTER_API_KEY: dummy
+        FISH_AUDIO_API_KEY: dummy
+        JWT_SECRET_KEY: dummy_jwt_secret_key_for_testing_purposes_only
+        SUPER_ADMIN_EMAIL: test@test.com
+        SUPER_ADMIN_PASSWORD: testpass
+
+    - name: Run unit & integration tests
+      run: |
+        cd backend && python -m unittest discover -s tests -v
+      env:
+        LIVEKIT_API_KEY: dummy
+        LIVEKIT_API_SECRET: dummy
+        DEEPGRAM_API_KEY: dummy
+        OPENROUTER_API_KEY: dummy
+        FISH_AUDIO_API_KEY: dummy
+        JWT_SECRET_KEY: dummy_jwt_secret_key_for_testing_purposes_only
+        SUPER_ADMIN_EMAIL: test@test.com
+        SUPER_ADMIN_PASSWORD: testpass
+        TELEMETRY_DB_DSN: postgresql://postgres:test_password@localhost:5432/alfie_test_db
 
   docker-build-test:
     runs-on: ubuntu-latest
@@ -73,3 +123,29 @@ jobs:
         cd alfie_website
         npm ci
         npm run build
+
+  frontend-e2e-test:
+    runs-on: ubuntu-latest
+    needs: frontend-build-test
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install dependencies
+      run: |
+        cd super_admin_ui
+        npm ci
+        npx playwright install --with-deps chromium
+
+    - name: Run Playwright E2E Smoke Tests
+      run: |
+        cd super_admin_ui
+        npx playwright test
+      env:
+        CI: true
+
+

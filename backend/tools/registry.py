@@ -41,21 +41,39 @@ class ToolRegistry:
                     f"Tool {tool_name} requested but not found in registry or DB."
                 )
 
-        # Inject niche-specific tools
-        if niche == "luxury_transfer":
+        # Inject niche-specific tools with comprehensive alias normalization
+        norm_niche = (niche or "").strip().lower().replace("-", "_")
+
+        if norm_niche in (
+            "luxury_transfer", "luxury_transport", "carrental", "car_rental", "fleet", "chauffeur"
+        ):
             if "luxury_transport_tools" in self._available_tools:
-                toolsets.append(
-                    self._available_tools["luxury_transport_tools"](**kwargs)
-                )
-        elif niche == "legal_intake":
+                toolsets.append(self._available_tools["luxury_transport_tools"](**kwargs))
+            if "car_rental_tools" in self._available_tools:
+                toolsets.append(self._available_tools["car_rental_tools"](**kwargs))
+        elif norm_niche in (
+            "legal_intake", "legal", "personal_injury", "law_firm", "law_firms", "lawyer"
+        ):
             if "legal_intake_tools" in self._available_tools:
                 toolsets.append(self._available_tools["legal_intake_tools"](**kwargs))
-        elif niche == "medical_reception":
+        elif norm_niche in (
+            "medical_reception", "medical", "clinic", "clinics", "dental", "dental_clinic", "healthcare"
+        ):
             if "medical_tools" in self._available_tools:
                 toolsets.append(self._available_tools["medical_tools"](**kwargs))
-        elif niche == "hospitality_concierge":
+        elif norm_niche in (
+            "hospitality_concierge", "hospitality", "restaurant", "dining"
+        ):
             if "hospitality_tools" in self._available_tools:
                 toolsets.append(self._available_tools["hospitality_tools"](**kwargs))
+        elif norm_niche in (
+            "real_estate", "realestate", "realty", "property"
+        ):
+            if "real_estate_tools" in self._available_tools:
+                toolsets.append(self._available_tools["real_estate_tools"](**kwargs))
+            if "calendar_tools" in self._available_tools:
+                toolsets.append(self._available_tools["calendar_tools"](**kwargs))
+
 
         # Dynamically build custom tools configured by the tenant
         for ct in custom_tools:
@@ -64,7 +82,7 @@ class ToolRegistry:
                 if isinstance(params_json, str):
                     try:
                         params_json = json.loads(params_json)
-                    except:
+                    except (json.JSONDecodeError, TypeError):
                         params_json = {}
 
                 dynamic_tool = self._create_dynamic_tool_class(

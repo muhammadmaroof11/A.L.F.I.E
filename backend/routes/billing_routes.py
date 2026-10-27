@@ -39,27 +39,33 @@ async def stripe_webhook(request: Request):
         transaction_type = session.get("metadata", {}).get("type", "credit_topup")
 
         if tenant_id:
-            amount_usd = session.get("amount_total", 0) / 100.0
-            logger.info(f"Stripe payment success: ${amount_usd} for tenant {tenant_id}")
+            try:
+                tenant_uuid = uuid.UUID(tenant_id) if isinstance(tenant_id, str) else tenant_id
+            except (ValueError, TypeError):
+                tenant_uuid = None
 
-            if _pool:
-                try:
-                    async with _pool.acquire() as conn:
-                        await conn.execute(
-                            "INSERT INTO alfie_credit_transactions (tenant_id, amount_usd, transaction_type, description) VALUES ($1, $2, $3, $4)",
-                            tenant_id,
-                            amount_usd,
-                            transaction_type,
-                            f"Stripe payment {session.get('id')}",
-                        )
+            if tenant_uuid:
+                amount_usd = session.get("amount_total", 0) / 100.0
+                logger.info(f"Stripe payment success: ${amount_usd} for tenant {tenant_uuid}")
 
-                        # Add credit to credit_limit_usd
-                        await conn.execute(
-                            "UPDATE alfie_tenants SET credit_limit_usd = COALESCE(credit_limit_usd, 0) + $1 WHERE tenant_id = $2",
-                            amount_usd,
-                            uuid.UUID(tenant_id),
-                        )
-                except Exception as e:
-                    logger.error(f"Failed to process Stripe event in DB: {e}")
+                if _pool:
+                    try:
+                        async with _pool.acquire() as conn:
+                            await conn.execute(
+                                "INSERT INTO alfie_credit_transactions (tenant_id, amount_usd, transaction_type, description) VALUES ($1, $2, $3, $4)",
+                                tenant_uuid,
+                                amount_usd,
+                                transaction_type,
+                                f"Stripe payment {session.get('id')}",
+                            )
+
+                            # Add credit to credit_limit_usd
+                            await conn.execute(
+                                "UPDATE alfie_tenants SET credit_limit_usd = COALESCE(credit_limit_usd, 0) + $1 WHERE tenant_id = $2",
+                                amount_usd,
+                                tenant_uuid,
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to process Stripe event in DB: {e}")
 
     return {"status": "success"}

@@ -1,108 +1,114 @@
 import React from 'react';
-import { Shield, Zap, Lock, CheckCircle2, PhoneCall, Cpu, ArrowUpRight } from 'lucide-react';
+import { Shield, Zap, Lock, PhoneCall, Cpu, ArrowUpRight, Radio } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Footer() {
-  const scrollTo = (id) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   return (
-    <footer className="bg-[#060A13] border-t border-white/[0.05] pt-16 pb-12 text-[#CBD5E1]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <footer className="bg-slate-50 border-t border-slate-200/80 pt-16 pb-12 text-slate-600 relative overflow-hidden">
+      
+      {/* Background ambient lighting */}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Top Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-white/[0.06]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-slate-200">
           
           {/* Brand Col */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <img 
-                src="/logo.png" 
-                alt="A.L.F.I.E Logo" 
-                className="h-8 w-auto object-contain rounded-lg"
-              />
-              <span className="font-extrabold text-2xl text-white tracking-tight">A.L.F.I.E</span>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <img 
+                  src="/logo.webp" 
+                  alt="A.L.F.I.E Logo" 
+                  className="h-8 w-auto object-contain"
+                />
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+              <span className="font-extrabold text-xl text-slate-900 tracking-tight font-heading">A.L.F.I.E</span>
             </div>
-            <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
-              Autonomous, hyper-realistic Voice AI receptionist infrastructure engineered for high-ticket law firms, medical clinics, luxury fleet operators, and enterprise service verticals.
+            <p className="text-xs text-slate-600 max-w-sm leading-relaxed">
+              Autonomous Voice AI receptionist and telephony cloud infrastructure engineered for local shops, medical clinics, law firms, and multi-location enterprises.
             </p>
-            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1.5 w-fit">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>All 5 Voice Pipelines Operational (99.99% SLA)</span>
+            <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 w-fit font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>All Telephony Systems Operational (99.99% SLA)</span>
             </div>
           </div>
 
-          {/* Vertical Solutions */}
+          {/* Solutions */}
           <div>
-            <h4 className="font-bold text-sm text-[#F8FAFC] uppercase tracking-wider mb-4">Verticals</h4>
-            <ul className="space-y-2.5 text-sm text-slate-400">
+            <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider mb-3 font-mono">
+              Industry Verticals
+            </h4>
+            <ul className="space-y-2 text-xs text-slate-600">
               <li>
-                <button onClick={() => scrollTo('niche-showcase')} className="hover:text-[#38BDF8] transition-colors cursor-pointer text-left">
+                <Link to="/law-firms" className="hover:text-blue-600 transition-colors">
                   Personal Injury Law
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => scrollTo('niche-showcase')} className="hover:text-[#38BDF8] transition-colors cursor-pointer text-left">
+                <Link to="/clinics" className="hover:text-blue-600 transition-colors">
                   Medical & Dental Clinics
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => scrollTo('niche-showcase')} className="hover:text-[#38BDF8] transition-colors cursor-pointer text-left">
+                <Link to="/car-rental" className="hover:text-blue-600 transition-colors">
                   Luxury Transport & Fleets
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => scrollTo('niche-showcase')} className="hover:text-[#38BDF8] transition-colors cursor-pointer text-left">
+                <Link to="/real-estate" className="hover:text-blue-600 transition-colors">
                   Real Estate Brokerages
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => scrollTo('niche-showcase')} className="hover:text-[#38BDF8] transition-colors cursor-pointer text-left">
+                <Link to="/hospitality" className="hover:text-blue-600 transition-colors">
                   Fine Hospitality & Dining
-                </button>
+                </Link>
               </li>
             </ul>
           </div>
 
-          {/* Architecture & Tech */}
+          {/* Telephony Core */}
           <div>
-            <h4 className="font-bold text-sm text-[#F8FAFC] uppercase tracking-wider mb-4">Architecture</h4>
-            <ul className="space-y-2.5 text-sm text-slate-400">
+            <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider mb-3 font-mono">
+              Infrastructure
+            </h4>
+            <ul className="space-y-2 text-xs text-slate-600">
               <li className="flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5 text-[#38BDF8]" />
-                <span>LiveKit WebRTC Stack</span>
+                <Cpu className="w-3.5 h-3.5 text-slate-600" />
+                <span>LiveKit WebRTC 48kHz</span>
               </li>
               <li className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>Deepgram Nova-2 Streaming</span>
+                <Zap className="w-3.5 h-3.5 text-slate-600" />
+                <span>Deepgram Nova-2 STT</span>
               </li>
               <li className="flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Redis Stack Caching</span>
+                <Lock className="w-3.5 h-3.5 text-slate-600" />
+                <span>Redis Stack Memory</span>
               </li>
               <li className="flex items-center gap-1.5">
-                <PhoneCall className="w-3.5 h-3.5 text-blue-400" />
-                <span>SIP Trunk Cold-Transfer</span>
+                <PhoneCall className="w-3.5 h-3.5 text-slate-600" />
+                <span>BYOK Carrier SIP Trunking</span>
               </li>
             </ul>
           </div>
 
           {/* Portals & Security */}
           <div>
-            <h4 className="font-bold text-sm text-[#F8FAFC] uppercase tracking-wider mb-4">Portals & Access</h4>
-            <ul className="space-y-2.5 text-sm text-slate-400">
+            <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider mb-3 font-mono">
+              Portals & Security
+            </h4>
+            <ul className="space-y-2 text-xs text-slate-600">
               <li>
                 <a 
                   href="http://localhost:5174" 
                   target="_blank" 
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:text-[#38BDF8] transition-colors font-medium text-slate-300"
+                  className="inline-flex items-center gap-1 hover:text-blue-600 transition-colors font-semibold text-slate-700"
                 >
                   <span>Client Admin Portal</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-500" />
                 </a>
               </li>
               <li>
@@ -110,17 +116,15 @@ export default function Footer() {
                   href="http://localhost:5173" 
                   target="_blank" 
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:text-[#38BDF8] transition-colors font-medium text-slate-300"
+                  className="inline-flex items-center gap-1 hover:text-blue-600 transition-colors font-semibold text-slate-700"
                 >
                   <span>Super Admin Portal</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-500" />
                 </a>
               </li>
-              <li className="pt-2">
-                <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
-                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>SOC2 & HIPAA Compliant Data Flow</span>
-                </div>
+              <li className="pt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-mono">
+                <Shield className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>SOC-2 & HIPAA Compliant</span>
               </li>
             </ul>
           </div>
@@ -128,12 +132,12 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-mono">
           <p>© {new Date().getFullYear()} A.L.F.I.E Voice AI Inc. All rights reserved.</p>
           <div className="flex items-center gap-6">
-            <span className="cursor-pointer hover:text-white transition-colors">Privacy Policy</span>
-            <span className="cursor-pointer hover:text-white transition-colors">Terms of Service</span>
-            <span className="cursor-pointer hover:text-white transition-colors">Security Architecture</span>
+            <span className="cursor-pointer hover:text-slate-900 transition-colors">Privacy Policy</span>
+            <span className="cursor-pointer hover:text-slate-900 transition-colors">Terms of Service</span>
+            <span className="cursor-pointer hover:text-slate-900 transition-colors">Security Architecture</span>
           </div>
         </div>
 

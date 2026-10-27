@@ -1,6 +1,6 @@
 from typing import Optional
 from pydantic import Field
-from datetime import datetime
+from datetime import datetime, timezone
 from .core import MongoBaseModel
 
 
@@ -22,7 +22,7 @@ class Vehicle(MongoBaseModel):
     status: str = "available"
     min_driver_age: int = 21
     deposit_amount: float
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CRReservation(MongoBaseModel):
@@ -41,4 +41,4 @@ class CRReservation(MongoBaseModel):
     currency: str = "PKR"
     status: str = "confirmed"
     admin_notified: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

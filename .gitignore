@@ -36,3 +36,12 @@ marketing_assets_keys.md
 .env*
 !*.example
 .codegraph/
+
+# Database Backups
+backups/
+*.dump
+
+# Personal, Local Sync & Document Artifacts
+.sync/
+dist_docs/
+*.docx

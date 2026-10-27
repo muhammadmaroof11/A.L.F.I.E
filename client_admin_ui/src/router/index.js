@@ -19,6 +19,11 @@ const routes = [
         component: () => import('../views/Dashboard.vue')
       },
       {
+        path: 'live-calls',
+        name: 'Live Calls',
+        component: () => import('../views/LiveCalls.vue')
+      },
+      {
         path: 'leads',
         name: 'Leads Pipeline',
         component: () => import('../views/LeadsKanban.vue')
@@ -47,6 +52,11 @@ const routes = [
         path: 'agents/:agent_id',
         name: 'Agent Config',
         component: () => import('../views/AgentConfiguration.vue')
+      },
+      {
+        path: 'phone-numbers',
+        name: 'Phone Numbers',
+        component: () => import('../views/PhoneNumbers.vue')
       },
       {
         path: 'billing',

@@ -1,14 +1,20 @@
+import asyncio
 import json
 import uuid
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from config import settings
 from provisioning import create_tenant
+from auth import require_role
 
-router = APIRouter(prefix="/api/super", tags=["Super Admin Control"])
+router = APIRouter(
+    prefix="/api/super",
+    tags=["Super Admin Control"],
+    dependencies=[Depends(require_role("super_admin"))],
+)
 
 
 class ProvisionRequest(BaseModel):
@@ -41,12 +47,6 @@ class TenantSubscriptionRequest(BaseModel):
     custom_monthly_price: Optional[float] = 0.0
     custom_included_minutes: Optional[int] = 0
     custom_per_minute_rate: Optional[float] = 0.15
-
-
-class AgentUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    system_prompt_override: Optional[str] = None
-    tts_voice_id: Optional[str] = None
 
 
 class PersonaRequest(BaseModel):
@@ -84,9 +84,11 @@ class CreditTopupRequest(BaseModel):
 
 
 class WebCallTokenRequest(BaseModel):
-    room_name: str
-    participant_name: str
-    tenant_id: str
+    room_name: Optional[str] = None
+    participant_name: Optional[str] = None
+    identity: Optional[str] = None
+    tenant_id: Optional[str] = None
+    niche: Optional[str] = None
 
 
 class CustomToolRequest(BaseModel):
@@ -206,6 +208,11 @@ async def update_tenant(tenant_id: str, req: TenantUpdateRequest):
         d["credit_limit_usd"] = (
             float(d["credit_limit_usd"]) if d["credit_limit_usd"] is not None else 50.0
         )
+
+        if req.status in ("suspended", "deactivated", "disabled"):
+            from auth import revoke_tenant_sessions
+            asyncio.create_task(revoke_tenant_sessions(tenant_id))
+
         return d
 
 
@@ -277,29 +284,6 @@ async def update_tenant_custom_config(
             )
 
         return existing_cfg
-
-
-@router.get("/tenants/{tenant_id}/agents")
-async def get_tenant_agents(tenant_id: str):
-    from telemetry import _pool
-
-    if not _pool:
-        raise HTTPException(status_code=500, detail="Database not initialized")
-    async with _pool.acquire() as conn:
-        records = await conn.fetch(
-            "SELECT * FROM alfie_tenant_agents WHERE tenant_id = $1",
-            uuid.UUID(tenant_id),
-        )
-        result = []
-        for r in records:
-            d = dict(r)
-            d["agent_id"] = str(d["agent_id"])
-            d["tenant_id"] = str(d["tenant_id"])
-            d["created_at"] = (
-                d["created_at"].isoformat() if d.get("created_at") else None
-            )
-            result.append(d)
-        return result
 
 
 @router.put("/tenants/{tenant_id}/subscription")
@@ -453,24 +437,16 @@ async def provision_agent(tenant_id: str, req: AgentProvisionRequest):
             req.stt_language,
         )
 
-        # 3. Simulate provisioning a phone number
-        import random
+        # 3. Provision phone number via carrier integration
+        from telephony_provider import provision_agent_phone_number
 
-        fake_number = f"+1{random.randint(200,999)}{random.randint(1000000,9999999)}"
-
-        await conn.execute(
-            """
-            INSERT INTO alfie_phone_numbers (phone_number, tenant_id, niche, agent_id, provider)
-            VALUES ($1, $2, $3, $4, $5)
-        """,
-            fake_number,
-            str(tenant_id),
-            req.niche or "general",
-            uuid.UUID(agent_id),
-            "Simulated SIP",
+        phone_number = await provision_agent_phone_number(
+            tenant_id=str(tenant_id),
+            agent_id=str(agent_id),
+            niche=req.niche or "general",
         )
 
-        return {"status": "success", "agent_id": agent_id, "phone_number": fake_number}
+        return {"status": "success", "agent_id": agent_id, "phone_number": phone_number}
 
 
 @router.put("/agents/{agent_id}")
@@ -512,7 +488,8 @@ async def update_agent(agent_id: str, req: AgentUpdateRequest):
 
         redis = await get_redis()
         if redis:
-            await invalidate_tenant_config(redis, tenant_id, agent_id)
+            tenant_id_val = str(row["tenant_id"])
+            await invalidate_tenant_config(redis, tenant_id_val, agent_id)
 
         d = dict(row)
         d["agent_id"] = str(d["agent_id"])
@@ -534,6 +511,8 @@ async def delete_tenant(tenant_id: str):
         )
         if res == "DELETE 0":
             raise HTTPException(status_code=404, detail="Tenant not found")
+        from auth import revoke_tenant_sessions
+        asyncio.create_task(revoke_tenant_sessions(tenant_id))
         return {
             "status": "success",
             "message": f"Tenant {tenant_id} deleted successfully",
@@ -548,12 +527,13 @@ async def get_global_agent_config():
         raise HTTPException(status_code=500, detail="Database not initialized")
     async with _pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT value FROM alfie_config WHERE key = 'global_agent_config'"
+            "SELECT value FROM alfie_global_config WHERE key = 'global_agent_config'"
         )
         if not row:
             return {}
         try:
-            return json.loads(row["value"])
+            val = row["value"]
+            return json.loads(val) if isinstance(val, str) else val
         except Exception:
             return {}
 
@@ -565,14 +545,15 @@ async def save_global_agent_config(body: dict):
     if not _pool:
         raise HTTPException(status_code=500, detail="Database not initialized")
     val = body.get("value", body)
+    val_json = json.dumps(val) if not isinstance(val, str) else val
     async with _pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO alfie_config (key, value, updated_at)
-            VALUES ('global_agent_config', $1, CURRENT_TIMESTAMP)
-            ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = CURRENT_TIMESTAMP
+            INSERT INTO alfie_global_config (key, value, updated_at)
+            VALUES ('global_agent_config', $1::jsonb, CURRENT_TIMESTAMP)
+            ON CONFLICT (key) DO UPDATE SET value = $1::jsonb, updated_at = CURRENT_TIMESTAMP
             """,
-            json.dumps(val),
+            val_json,
         )
         return {"status": "success", "config": val}
 
@@ -663,7 +644,7 @@ async def create_voucher(req: VoucherCreateRequest):
 
     if not _pool:
         raise HTTPException(status_code=500, detail="Database not initialized")
-    expires_at = datetime.utcnow() + timedelta(days=req.expires_in_days)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=req.expires_in_days)
     code_upper = req.code.strip().upper()
     async with _pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -705,7 +686,7 @@ async def redeem_voucher(req: VoucherRedeemRequest):
                 status_code=400, detail="Voucher maximum redemption limit reached"
             )
 
-        if voucher["expires_at"] and voucher["expires_at"] < datetime.utcnow():
+        if voucher["expires_at"] and voucher["expires_at"] < datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail="Voucher has expired")
 
         # Check if tenant already redeemed this voucher
@@ -985,7 +966,7 @@ async def list_call_recordings(tenant_id: Optional[str] = None, limit: int = 50)
                     "llm_ttft_ms": 380,
                     "tts_ms": 190,
                     "total_ms": 710,
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                 },
                 {
                     "call_id": "call_44f12d8a",
@@ -1001,7 +982,7 @@ async def list_call_recordings(tenant_id: Optional[str] = None, limit: int = 50)
                     "llm_ttft_ms": 450,
                     "tts_ms": 230,
                     "total_ms": 890,
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                 },
             ]
 
@@ -1022,48 +1003,56 @@ async def list_call_recordings(tenant_id: Optional[str] = None, limit: int = 50)
 
 
 @router.post("/web-call-token")
+@router.post("/livekit/token")
 async def generate_web_call_token(req: WebCallTokenRequest):
+    room = req.room_name or f"sim-room-{uuid.uuid4().hex[:8]}"
+    identity = req.identity or req.participant_name or f"tester-{uuid.uuid4().hex[:6]}"
+    tenant_id = req.tenant_id or "super-admin-sim"
+    niche = req.niche or "general"
+
     if not settings.livekit_api_key or not settings.livekit_api_secret:
         return {
             "token": "mock_livekit_token_dev_mode",
             "url": settings.livekit_url,
-            "room_name": req.room_name,
-            "identity": req.participant_name,
-            "tenant_id": req.tenant_id,
+            "room_name": room,
+            "identity": identity,
+            "tenant_id": tenant_id,
+            "niche": niche,
         }
 
     try:
         from livekit import api as livekit_api
 
+        metadata = json.dumps({"tenant_id": tenant_id, "niche": niche})
         token = (
             livekit_api.AccessToken(
                 settings.livekit_api_key, settings.livekit_api_secret
             )
-            .with_identity(req.participant_name)
-            .with_name(req.participant_name)
+            .with_identity(identity)
+            .with_name(identity)
             .with_grants(
                 livekit_api.VideoGrants(
                     room_join=True,
-                    room=req.room_name,
+                    room=room,
                     can_publish=True,
                     can_subscribe=True,
                 )
             )
-            .with_metadata(json.dumps({"tenant_id": req.tenant_id}))
+            .with_metadata(metadata)
         )
 
         return {
             "token": token.to_jwt(),
             "url": settings.livekit_url,
-            "room_name": req.room_name,
-            "identity": req.participant_name,
+            "room_name": room,
+            "identity": identity,
         }
     except Exception as e:
         return {
-            "token": f"mock_livekit_token_fallback",
+            "token": "mock_livekit_token_fallback",
             "url": settings.livekit_url,
-            "room_name": req.room_name,
-            "identity": req.participant_name,
+            "room_name": room,
+            "identity": identity,
         }
 
 
@@ -1199,7 +1188,7 @@ async def get_dashboard_stats():
         total_numbers = await conn.fetchval("SELECT COUNT(*) FROM alfie_phone_numbers") or 0
 
         # 7-Day Call Volume Distribution
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         days_map = {}
         day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         for i in range(6, -1, -1):
@@ -1366,4 +1355,113 @@ async def get_revenue_summary():
             "pending_invoices_amount": 149.00,
             "recent_transactions": transactions
         }
+
+
+# --- Phone Numbers (SIP / DID) Management Endpoints ---
+
+class PhoneNumberMapRequest(BaseModel):
+    phone_number: str
+    tenant_id: str
+    niche: str = "general"
+    agent_id: Optional[str] = None
+    provider: Optional[str] = "LiveKit SIP Trunk"
+
+
+class PhoneNumberBuyRequest(BaseModel):
+    phone_number: str
+    tenant_id: str
+    niche: str = "general"
+    agent_id: Optional[str] = None
+
+
+@router.get("/phone-numbers")
+async def list_phone_numbers():
+    """Lists all mapped phone numbers across tenants with agent assignment."""
+    from telemetry import _pool
+
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        records = await conn.fetch(
+            """
+            SELECT p.id, p.phone_number, p.tenant_id, p.niche, p.provider, p.agent_id, p.created_at,
+                   t.name as tenant_name, a.name as agent_name
+            FROM alfie_phone_numbers p
+            LEFT JOIN alfie_tenants t ON p.tenant_id = t.tenant_id::text
+            LEFT JOIN alfie_tenant_agents a ON p.agent_id = a.agent_id
+            ORDER BY p.created_at DESC
+            """
+        )
+        res = []
+        for r in records:
+            d = dict(r)
+            d["id"] = d["id"]
+            d["agent_id"] = str(d["agent_id"]) if d.get("agent_id") else None
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            res.append(d)
+        return res
+
+
+@router.post("/phone-numbers")
+async def map_phone_number(req: PhoneNumberMapRequest):
+    """Maps/binds a phone number to a specific tenant workspace."""
+    from telemetry import _pool
+
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        agent_uuid = uuid.UUID(req.agent_id) if req.agent_id else None
+        row = await conn.fetchrow(
+            """
+            INSERT INTO alfie_phone_numbers (phone_number, tenant_id, niche, agent_id, provider)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (phone_number) 
+            DO UPDATE SET tenant_id = EXCLUDED.tenant_id, niche = EXCLUDED.niche, agent_id = EXCLUDED.agent_id, provider = EXCLUDED.provider
+            RETURNING *
+            """,
+            req.phone_number.strip(),
+            req.tenant_id.strip(),
+            req.niche or "general",
+            agent_uuid,
+            req.provider or "LiveKit SIP Trunk",
+        )
+        d = dict(row)
+        d["agent_id"] = str(d["agent_id"]) if d.get("agent_id") else None
+        d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+        return d
+
+
+@router.delete("/phone-numbers/{id}")
+async def delete_phone_number(id: int):
+    """Unbinds/removes a phone number mapping."""
+    from telemetry import _pool
+
+    if not _pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    async with _pool.acquire() as conn:
+        res = await conn.execute("DELETE FROM alfie_phone_numbers WHERE id = $1", id)
+        if res == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Phone number not found")
+        return {"status": "deleted"}
+
+
+@router.get("/phone-numbers/search")
+async def search_numbers(area_code: Optional[str] = None, country_code: str = "US", limit: int = 5):
+    """Searches live carrier API (Twilio / Telnyx) for available local numbers."""
+    from telephony_provider import search_available_phone_numbers
+    numbers = await search_available_phone_numbers(area_code=area_code, country_code=country_code, limit=limit)
+    return {"numbers": numbers}
+
+
+@router.post("/phone-numbers/buy")
+async def buy_and_assign_number(req: PhoneNumberBuyRequest):
+    """1-Click carrier purchasing and tenant assignment for a selected phone number."""
+    from telephony_provider import purchase_phone_number
+    result = await purchase_phone_number(
+        phone_number=req.phone_number,
+        tenant_id=req.tenant_id,
+        agent_id=req.agent_id,
+        niche=req.niche,
+    )
+    return result
 
